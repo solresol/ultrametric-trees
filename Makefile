@@ -1,32 +1,17 @@
 .PHONY: build run test clean
 
-build: bin/traverse bin/generate
+build: bin/prepare
 	echo All built
 
-bin/traverse: cmd/traverse/main.go internal/traverse/traverse.go
-	go build -o bin/traverse cmd/traverse/main.go
+bin/prepare: cmd/prepare/main.go
+	go build -o bin/prepare cmd/prepare/main.go
 
-bin/generate:
-	go build -o bin/generate cmd/generate/main.go
-
-
-#.wordnet.sqlite: bin/traverse dict/index.noun dict/index.verb
-#	./bin/traverse -wordnet dict -sqlite .wordnet.sqlite
-
-.wordnet.sqlite: make_wordnet_database.py
-	python3 make_wordnet_database.py --sqlite .wordnet.sqlite
-
-test:
-	go test ./...
+slm-w2.sqlite: bin/prepare /tinystories/wordnetify-tinystories/w2.sqlite
+	./bin/prepare --input-database /tinystories/wordnetify-tinystories/w2.sqlite --output-database slm-w2.sqlite
 
 clean:
-	rm -rf bin/traverse bin/generate
+	rm -rf bin/prepare
 
-run: .wordnet.sqlite
-	./bin/generate -input input.db -traverse traverse.db -output output.db
+dbclean:
+	rm -f slm-w2.sqlite
 
-wn3.1.dict.tar.gz:
-	wget https://wordnetcode.princeton.edu/wn3.1.dict.tar.gz
-
-dict/index.noun dict/index.verb: wn3.1.dict.tar.gz
-	tar xvfz wn3.1.dict.tar.gz
