@@ -152,7 +152,7 @@ func main() {
 
 func createOutputTables(db *sql.DB, contextLength int, outputTable string, noNode bool) {
 	// Create training_data table
-	_, err := db.Exec("create table if not exists nodes (id integer primary key autoincrement, exemplar_value text, data_quantity integer, loss float, inner_region_prefix text, inner_region_node_id integer, outer_region_node)")
+	_, err := db.Exec("create table if not exists nodes (id integer primary key autoincrement, exemplar_value text, data_quantity integer, loss float, contextk int, inner_region_prefix text, inner_region_node_id integer, outer_region_node, when_created datetime default current_timestamp, when_children_populated datetime)")
 	_, err = db.Exec("insert or ignore into nodes (id) values (1)")
 	
 	query := fmt.Sprintf("CREATE TABLE IF NOT EXISTS %s (id INTEGER PRIMARY KEY AUTOINCREMENT, targetword TEXT", outputTable)
