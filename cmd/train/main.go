@@ -11,6 +11,42 @@ import (
 	_ "github.com/mattn/go-sqlite3"
 )
 
+// It is given a CLI argument --node-id (which defaults to 1). It
+// looks at the --table table and selects all the rows where node =
+// [node-id] and loads them into an array. It then uses a probabilistic
+// estimate to find a good exemplar. updates the nodes table
+// where the node_id = [node-id], setting exemplar_value to the
+// exemplar, loss to the estimated loss and data_quantity to the
+// number of rows in the [table] that had that node_id.
+
+func initializeFirstLeaf(db *sql.DB, trainingDataTable string, exemplarGuesses, costGuesses int, rng *rand.Rand) (error) {
+	nodeID := exemplar.NodeID(1)
+	rows, err := exemplar.LoadRows(db, trainingDataTable, nodeID)
+	if err != nil {
+		return fmt.Errorf("Error loading rows: %v", err)
+	}
+
+	bestExemplar, bestLoss, err := exemplar.FindBestExemplar(rows, exemplarGuesses, costGuesses, rng)
+
+	if err != nil {
+		return fmt.Errorf("Could not get best exemplar: %v", err)
+	}
+
+	_, err = db.Exec(`
+		UPDATE nodes 
+		SET exemplar_value = ?, loss = ?, data_quantity = ? 
+		WHERE id = ?
+	`, bestExemplar.String(), bestLoss, len(rows), nodeID)
+	if err != nil {
+		return fmt.Errorf("Error updating nodes table: %v", err)
+	}
+
+	fmt.Printf("Updated node %d with exemplar %s, loss %f, and data quantity %d\n", nodeID, bestExemplar.String(), bestLoss, len(rows))
+
+	return nil
+}
+
+
 //  How step: it iterates [split-count-try] times... each iteration consists of randomly picking a k for LoadContextNWithinNode, then it gets all the possible synsets that it returns; then it iterates [num-circles-per-split] times picking a random possible synset each time, calling exemplar.FindBestExemplar on the inside array and again on the outside array, and adding up the two losses.
 
 // In the end, it will have a contextK, a bestCircle, a total loss, a
@@ -56,6 +92,11 @@ func main() {
 
 	rng := rand.New(rand.NewSource(*seed))
 
+	err = initializeFirstLeaf(db, *table, *exemplarGuesses, *costGuesses, rng)
+	if err != nil {
+		log.Fatalf("Could not initialize first leaf: %v", err)
+	}
+
 	var bestContextK int
 	var bestCircle exemplar.Synsetpath
 	bestTotalLoss := float64(1<<63 - 1) // Initialize with max float64 value
@@ -81,13 +122,13 @@ func main() {
 			randomSynset := possibleSynsets[rng.Intn(len(possibleSynsets))]
 			inside, outside := exemplar.SplitByFilter(sourceRows, targetRows, randomSynset)
 
-			insideExemplar, insideLoss, err := exemplar.FindBestExemplar(inside, *exemplarGuesses, *costGuesses, *seed)
+			insideExemplar, insideLoss, err := exemplar.FindBestExemplar(inside, *exemplarGuesses, *costGuesses, rng)
 			if err != nil {
 				log.Printf("Error finding inside exemplar: %v", err)
 				continue
 			}
 
-			outsideExemplar, outsideLoss, err := exemplar.FindBestExemplar(outside, *exemplarGuesses, *costGuesses, *seed)
+			outsideExemplar, outsideLoss, err := exemplar.FindBestExemplar(outside, *exemplarGuesses, *costGuesses, rng)
 			if err != nil {
 				log.Printf("Error finding outside exemplar: %v", err)
 				continue
@@ -141,7 +182,7 @@ func main() {
 	// Update parent node
 	_, err = tx.Exec(`
 		UPDATE nodes
-		SET contextk = ?, inner_region_prefix = ?, inner_region_node_id = ?, outer_region_node = ?
+		SET contextk = ?, inner_region_prefix = ?, inner_region_node_id = ?, outer_region_node = ?,
                     when_children_populated = current_timestamp
 		WHERE id = ?
 	`, bestContextK, bestCircle.String(), innerNodeID, outerNodeID, *nodeID)

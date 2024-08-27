@@ -189,12 +189,11 @@ func CalculateCost(exemplar, comparator Synsetpath) float64 {
 // total number of rows in the database, it can estimate the loss of
 // that exemplar.
 
-func FindBestExemplar(rows []DataFrameRow, exemplarGuesses, costGuesses int, seed int64) (Synsetpath, float64, error) {
+func FindBestExemplar(rows []DataFrameRow, exemplarGuesses, costGuesses int, rng *rand.Rand) (Synsetpath, float64, error) {
 	if len(rows) == 0 {
 		return Synsetpath{}, 0, fmt.Errorf("no rows provided to FindBestExemplar")
 	}
 
-	rng := rand.New(rand.NewSource(seed))
 	bestExemplar := Synsetpath{}
 	bestLoss := math.Inf(1)
 
