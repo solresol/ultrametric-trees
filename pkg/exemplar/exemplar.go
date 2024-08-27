@@ -10,6 +10,7 @@ import (
 )
 
 type NodeID int
+const RootNodeID NodeID = 1
 
 type Synsetpath struct {
 	Path []int
@@ -44,8 +45,8 @@ func (sp Synsetpath) String() string {
 	return strings.Join(parts, ".")
 }
 
-func LoadRows(db *sql.DB, table string, nodeID NodeID) ([]DataFrameRow, error) {
-	query := fmt.Sprintf("SELECT id, targetword FROM %s WHERE node_id = ? order by id", table)
+func LoadRows(db *sql.DB, dataframeTable string, nodeBucketTable string, nodeID NodeID) ([]DataFrameRow, error) {
+	query := fmt.Sprintf("SELECT id, targetword FROM %s JOIN %s USING (id) WHERE node_id = ? order by id", dataframeTable, nodeBucketTable)
 	
 	rows, err := db.Query(query, nodeID)
 	if err != nil {
@@ -72,12 +73,12 @@ func LoadRows(db *sql.DB, table string, nodeID NodeID) ([]DataFrameRow, error) {
 
 // LoadContextNWithinNode is basically the same as LoadRows, except that instead of selecting targetword, it will be selecting contextk and filtering on nodeID. It returns an array, which has to be in the same order as LoadRows returns it (i.e. both should be sorted by ID).
 
-func LoadContextNWithinNode(db *sql.DB, table string, nodeID NodeID, k int, contextLength int) ([]DataFrameRow, error) {
+func LoadContextNWithinNode(db *sql.DB, dataframeTable string, nodeBucketTable string, nodeID NodeID, k int, contextLength int) ([]DataFrameRow, error) {
 	if k < 1 || k > contextLength {
 		return nil, fmt.Errorf("k must be between 1 and %d", contextLength)
 	}
 	
-	query := fmt.Sprintf("SELECT id, context%d FROM %s WHERE node_id = ? ORDER BY id", k, table)
+	query := fmt.Sprintf("SELECT id, context%d FROM %s JOIN %s USING (id) WHERE node_id = ? ORDER BY id", k, dataframeTable, nodeBucketTable)
 	
 	rows, err := db.Query(query, nodeID)
 	if err != nil {
@@ -267,4 +268,48 @@ func UpdateNodeIDs(db *sql.DB, table string, rowIDs []int, newNodeID NodeID) err
 	}
 
 	return tx.Commit()
+}
+
+
+func CompareTableRowCounts(db *sql.DB, table1, table2 string) (bool, error) {
+	query := fmt.Sprintf(`
+		SELECT
+			(SELECT COUNT(*) FROM %s) AS count1,
+			(SELECT COUNT(*) FROM %s) AS count2
+	`, table1, table2)
+
+	var count1, count2 int
+	err := db.QueryRow(query).Scan(&count1, &count2)
+	if err != nil {
+		return false, fmt.Errorf("error comparing row counts: %v", err)
+	}
+
+	return count1 == count2, nil
+}
+
+
+func TableExists(db *sql.DB, tableName string) (bool, error) {
+	query := `
+		SELECT name FROM sqlite_master 
+		WHERE type='table' AND name=?
+	`
+	var name string
+	err := db.QueryRow(query, tableName).Scan(&name)
+	if err == sql.ErrNoRows {
+		return false, nil
+	}
+	if err != nil {
+		return false, fmt.Errorf("error checking if table exists: %v", err)
+	}
+	return true, nil
+}
+
+func IsTableEmpty(db *sql.DB, tableName string) (bool, error) {
+	query := fmt.Sprintf("SELECT EXISTS(SELECT 1 FROM %s LIMIT 1)", tableName)
+	var exists bool
+	err := db.QueryRow(query).Scan(&exists)
+	if err != nil {
+		return false, fmt.Errorf("error checking if table is empty: %v", err)
+	}
+	return !exists, nil
 }

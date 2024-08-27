@@ -11,39 +11,148 @@ import (
 	_ "github.com/mattn/go-sqlite3"
 )
 
-// It is given a CLI argument --node-id (which defaults to 1). It
-// looks at the --table table and selects all the rows where node =
-// [node-id] and loads them into an array. It then uses a probabilistic
-// estimate to find a good exemplar. updates the nodes table
-// where the node_id = [node-id], setting exemplar_value to the
-// exemplar, loss to the estimated loss and data_quantity to the
-// number of rows in the [table] that had that node_id.
+// Initialises a table of node-mapping-to-row with
+// exemplar.RootNodeID.  It then uses a probabilistic estimate to find
+// a good exemplar for that root node. It then updates the
+// node-mapping-to-row table (nodeBucketTable) for that split (setting
+// exemplar_value to the exemplar, loss to the estimated loss and
+// data_quantity to the number of training data elements
 
-func initializeFirstLeaf(db *sql.DB, trainingDataTable string, exemplarGuesses, costGuesses int, rng *rand.Rand) (error) {
-	nodeID := exemplar.NodeID(1)
-	rows, err := exemplar.LoadRows(db, trainingDataTable, nodeID)
+func initializeFirstLeaf(db *sql.DB,
+	trainingDataTable, nodeBucketTable, nodesTable string,
+	exemplarGuesses, costGuesses int,
+	rng *rand.Rand) (error) {
+
+	// Create a table for the nodes hierarchy
+	query := fmt.Sprintf("create table if not exists %s (id integer primary key autoincrement, exemplar_value text, data_quantity integer, loss float, contextk int, inner_region_prefix text, inner_region_node_id integer, outer_region_node, when_created datetime default current_timestamp, when_children_populated datetime)", nodesTable)
+	_, err := db.Exec(query)
+	if err != nil {
+		return fmt.Errorf("Cannot create a table of nodes called %s: %v", nodesTable, err)
+	}
+
+	// Populate it with the first row. We could do this later, but it's nice to have the half-ready
+	// state visible.
+	query = fmt.Sprintf("insert or ignore into %s (id) values (%d)", nodesTable, int(exemplar.RootNodeID))
+	_, err = db.Exec(query)
+	if err != nil {
+		return fmt.Errorf("Could not create the root node in %s: %v", nodesTable, err)
+	}
+
+	// Create the node-mapping-to-row table
+	query = fmt.Sprintf("create table if not exists %s (id integer references %s (id), node_id integer references nodes(id), primary key (id, node_id))", nodeBucketTable, trainingDataTable)
+	_, err = db.Exec(query)
+	if err != nil {
+		return fmt.Errorf("Cannot create a table called %s: %v", nodeBucketTable, err)
+	}
+
+	// Populate the node-mapping-to-row table
+	query = fmt.Sprintf("insert or ignore into %s (id, node_id) select id, %d from %s",
+		nodeBucketTable, int(exemplar.RootNodeID), trainingDataTable)
+	_, err = db.Exec(query)
+	if err != nil {
+		return fmt.Errorf("Could not populate the table %s with records from %s: %v",
+			nodeBucketTable, trainingDataTable, err)
+	}
+
+	// The node-mapping-to-row table will get a lot of queries searching on those columns; often 
+	// because of updates.
+	query = fmt.Sprintf("create index if not exists %s_node_id on %s(node_id)", nodeBucketTable, nodeBucketTable)
+	_, err = db.Exec(query)
+	if err != nil {
+		return fmt.Errorf("Could not create an index %s_node_id: %v", nodeBucketTable, err)
+	}
+	query = fmt.Sprintf("create unique index if not exists %s_by_id on %s(id)", nodeBucketTable, nodeBucketTable)
+	_, err = db.Exec(query)
+	if err != nil {
+		return fmt.Errorf("Could not create an index %s_by_id: %v", nodeBucketTable, err)
+	}
+
+	// The tables are in reasonable shape, so now it's very much like the back-half of an
+	// exemplar choosing process. Let's get the data we need. rows is a large in-memory array
+	// of synsets
+	rows, err := exemplar.LoadRows(db, trainingDataTable, nodeBucketTable, exemplar.RootNodeID)
 	if err != nil {
 		return fmt.Errorf("Error loading rows: %v", err)
 	}
 
+	// Find the best exemplar (or, to be more honest, the one we can find quickly)
 	bestExemplar, bestLoss, err := exemplar.FindBestExemplar(rows, exemplarGuesses, costGuesses, rng)
 
 	if err != nil {
 		return fmt.Errorf("Could not get best exemplar: %v", err)
 	}
 
+	// Great: now our top-level nodes table has an exemplar, a loss and a quantity. We're
+	// just about ready for the recursive training process to start.
 	_, err = db.Exec(`
 		UPDATE nodes 
 		SET exemplar_value = ?, loss = ?, data_quantity = ? 
 		WHERE id = ?
-	`, bestExemplar.String(), bestLoss, len(rows), nodeID)
+	`, bestExemplar.String(), bestLoss, len(rows), exemplar.RootNodeID)
 	if err != nil {
 		return fmt.Errorf("Error updating nodes table: %v", err)
 	}
 
-	fmt.Printf("Updated node %d with exemplar %s, loss %f, and data quantity %d\n", nodeID, bestExemplar.String(), bestLoss, len(rows))
+	fmt.Printf("Updated node %d with exemplar %s, loss %f, and data quantity %d\n", exemplar.RootNodeID, bestExemplar.String(), bestLoss, len(rows))
 
 	return nil
+}
+
+
+func initialisationRequired(db *sql.DB, trainingDataTable, nodeBucketTable, nodesTable string) (bool, error) {
+	trainingDataExists, err := exemplar.TableExists(db, trainingDataTable)
+	if err != nil {
+		return true, fmt.Errorf("Could not detect whether %s exists: %v", trainingDataTable, err)
+	}
+	
+	nodeBucketTableExists, err := exemplar.TableExists(db, nodeBucketTable)
+	if err != nil {
+		return true, fmt.Errorf("Could not detect whether %s exists: %v", nodeBucketTable, err)
+	}
+
+	nodesTableExists, err := exemplar.TableExists(db, nodesTable)
+	if err != nil {
+		return true, fmt.Errorf("Could not detect whether %s exists: %v", nodesTable, err)
+	}
+	
+	if !trainingDataExists {
+		return true, fmt.Errorf("%s does not exist", trainingDataTable)
+	}
+
+	trainingIsEmpty, err := exemplar.IsTableEmpty(db, trainingDataTable)
+	if err != nil {
+		return true, fmt.Errorf("Could not detect whether there was any training data in %s: %v", trainingDataTable, err)
+	}
+	if trainingIsEmpty {
+		return true, fmt.Errorf("There is no training data in %s", trainingDataTable)
+	}
+
+	if !nodeBucketTableExists {
+		return true, nil
+	}
+
+	if !nodesTableExists {
+		return true, nil
+	}
+
+	// Let's check if it has the right number of rows
+	sameSize, err := exemplar.CompareTableRowCounts(db, trainingDataTable, nodeBucketTable)
+	if err != nil {
+		return true, fmt.Errorf("Could not compare the sizes of %s and %s: %v", trainingDataTable, nodeBucketTable, err)
+	}
+	if !sameSize {
+		return true, nil
+	}
+
+	nodesIsEmpty, err := exemplar.IsTableEmpty(db, nodesTable)
+	if err != nil {
+		return true, fmt.Errorf("Could not detect whether the nodes table %s was empty or not: %v",
+				nodesTable, err)
+	}
+	if nodesIsEmpty {
+		return true, nil
+	}
+	return false, nil
 }
 
 
@@ -70,7 +179,9 @@ func initializeFirstLeaf(db *sql.DB, trainingDataTable string, exemplarGuesses, 
 
 func main() {
 	database := flag.String("database", "", "SQLite database file")
-	table := flag.String("table", "training_data", "Table name")
+	trainingDataTable := flag.String("training-data", "training_data", "Table name where the training data is stored")
+	nodeBucketTable := flag.String("node-bucket", "node_bucket", "Table name where the mapping between rows in the training data and their current nodes is stored")
+	nodesTable := flag.String("node-table", "nodes", "The table where the node hierarchy is stored")
 	exemplarGuesses := flag.Int("exemplar-guesses", 1000, "Number of exemplar guesses")
 	costGuesses := flag.Int("cost-guesses", 1000, "Number of cost guesses per exemplar")
 	seed := flag.Int64("seed", 1, "Random number seed")
@@ -92,9 +203,15 @@ func main() {
 
 	rng := rand.New(rand.NewSource(*seed))
 
-	err = initializeFirstLeaf(db, *table, *exemplarGuesses, *costGuesses, rng)
+	needsInit, err := initialisationRequired(db, *trainingDataTable, *nodeBucketTable, *nodesTable)
 	if err != nil {
-		log.Fatalf("Could not initialize first leaf: %v", err)
+		log.Fatalf("Initialisation checks failed: %v", err)
+	}
+	if needsInit {
+		err = initializeFirstLeaf(db, *trainingDataTable, *nodeBucketTable, *nodesTable, *exemplarGuesses, *costGuesses, rng)
+		if err != nil {
+			log.Fatalf("Could not initialize first leaf: %v", err)
+		}
 	}
 
 	var bestContextK int
@@ -106,12 +223,12 @@ func main() {
 
 	for i := 0; i < *splitCountTry; i++ {
 		k := rng.Intn(*contextLength) + 1
-		sourceRows, err := exemplar.LoadContextNWithinNode(db, *table, exemplar.NodeID(*nodeID), k, *contextLength)
+		sourceRows, err := exemplar.LoadContextNWithinNode(db, *trainingDataTable, *nodeBucketTable, exemplar.NodeID(*nodeID), k, *contextLength)
 		if err != nil {
 			log.Fatalf("Error loading context rows: %v", err)
 		}
 
-		targetRows, err := exemplar.LoadRows(db, *table, exemplar.NodeID(*nodeID))
+		targetRows, err := exemplar.LoadRows(db, *trainingDataTable, *nodeBucketTable, exemplar.NodeID(*nodeID))
 		if err != nil {
 			log.Fatalf("Error loading target rows: %v", err)
 		}
@@ -200,7 +317,7 @@ func main() {
 	for i, row := range bestInsideRows {
 		insideIDs[i] = row.RowID
 	}
-	if err := exemplar.UpdateNodeIDs(db, *table, insideIDs, exemplar.NodeID(innerNodeID)); err != nil {
+	if err := exemplar.UpdateNodeIDs(db, *nodeBucketTable, insideIDs, exemplar.NodeID(innerNodeID)); err != nil {
 		log.Fatalf("Error updating inside node IDs: %v", err)
 	}
 
@@ -209,7 +326,7 @@ func main() {
 	for i, row := range bestOutsideRows {
 		outsideIDs[i] = row.RowID
 	}
-	if err := exemplar.UpdateNodeIDs(db, *table, outsideIDs, exemplar.NodeID(outerNodeID)); err != nil {
+	if err := exemplar.UpdateNodeIDs(db, *nodeBucketTable, outsideIDs, exemplar.NodeID(outerNodeID)); err != nil {
 		log.Fatalf("Error updating outside node IDs: %v", err)
 	}
 

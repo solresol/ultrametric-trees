@@ -109,6 +109,7 @@ func getPath(db *sql.DB, wordID int, word, synset string) (WordData, error) {
 // If it hits a word with no path, then it clears the whole buffer.
 
 // When you get to the end of a story, clear the whole buffer.
+// (Although what it should do is output an <END> marker.)
 
 func main() {
 	inputDB := flag.String("input-database", "", "Path to the input SQLite database")
@@ -117,7 +118,6 @@ func main() {
 	modulo := flag.Int("modulo", 0, "Modulo for story selection")
 	congruent := flag.Int("congruent", 0, "Congruent value for story selection")
 	outputTable := flag.String("output-table", "training_data", "Name of the output table for training data")
-	noNode := flag.Bool("no-node", false, "If set, do not create the 'node' column in the output table")
 	flag.Parse()
 
 	if *inputDB == "" || *outputDB == "" {
@@ -136,7 +136,7 @@ func main() {
 	}
 	defer outputConn.Close()
 
-	createOutputTables(outputConn, *contextLength, *outputTable, *noNode)
+	createOutputTables(outputConn, *contextLength, *outputTable)
 
 	stories, err := getStories(inputConn, *modulo, *congruent)
 	if err != nil {
@@ -144,40 +144,24 @@ func main() {
 	}
 
 	for _, storyID := range stories {
-		processStory(inputConn, outputConn, storyID, *contextLength, *outputTable, *noNode)
+		processStory(inputConn, outputConn, storyID, *contextLength, *outputTable)
 	}
 
 	fmt.Println("Data preparation completed successfully.")
 }
 
-func createOutputTables(db *sql.DB, contextLength int, outputTable string, noNode bool) {
+func createOutputTables(db *sql.DB, contextLength int, outputTable string) {
 	// Create training_data table
-	_, err := db.Exec("create table if not exists nodes (id integer primary key autoincrement, exemplar_value text, data_quantity integer, loss float, contextk int, inner_region_prefix text, inner_region_node_id integer, outer_region_node, when_created datetime default current_timestamp, when_children_populated datetime)")
-	_, err = db.Exec("insert or ignore into nodes (id) values (1)")
-	
 	query := fmt.Sprintf("CREATE TABLE IF NOT EXISTS %s (id INTEGER PRIMARY KEY AUTOINCREMENT, targetword TEXT", outputTable)
 	for i := 1; i <= contextLength; i++ {
 		query += fmt.Sprintf(", context%d TEXT", i)
 	}
-	if !noNode {
-		query += ", node_id INTEGER not null references nodes(id) default 1"
-	}
 	query += ")"
 	fmt.Printf("Executing %s\n", query)
 
-	_, err = db.Exec(query)
+	_, err := db.Exec(query)
 	if err != nil {
 		log.Fatalf("Error creating output table: %v", err)
-	}
-
-	// Create index on node column if it exists
-	if !noNode {
-		indexingCommand := fmt.Sprintf("CREATE INDEX IF NOT EXISTS idx_%s_node ON %s (node_id)", outputTable, outputTable)
-		fmt.Printf("Running indexing command: %s\n", indexingCommand)
-		_, err = db.Exec(indexingCommand)
-		if err != nil {
-			log.Fatalf("Error creating index on node column: %v", err)
-		}
 	}
 
 	// Create decodings table
@@ -230,7 +214,7 @@ func getStories(db *sql.DB, modulo, congruent int) ([]int, error) {
 	return stories, nil
 }
 
-func processStory(inputDB, outputDB *sql.DB, storyID, contextLength int, outputTable string, noNode bool) {
+func processStory(inputDB, outputDB *sql.DB, storyID, contextLength int, outputTable string) {
 	words, err := getWordsForStory(inputDB, storyID)
 	if err != nil {
 		log.Printf("Error getting words for story %d: %v", storyID, err)
@@ -248,7 +232,7 @@ func processStory(inputDB, outputDB *sql.DB, storyID, contextLength int, outputT
 		buffer = append(buffer, word)
 
 		if len(buffer) == contextLength+1 {
-			insertTrainingData(outputDB, buffer, contextLength, outputTable, noNode)
+			insertTrainingData(outputDB, buffer, contextLength, outputTable)
 			buffer = buffer[1:] // Remove the oldest word
 		}
 	}
@@ -292,7 +276,7 @@ func getWordsForStory(db *sql.DB, storyID int) ([]WordData, error) {
 	return words, nil
 }
 
-func insertTrainingData(db *sql.DB, buffer []WordData, contextLength int, outputTable string, noNode bool) {
+func insertTrainingData(db *sql.DB, buffer []WordData, contextLength int, outputTable string) {
 	tx, err := db.Begin()
 	if err != nil {
 		log.Printf("Error starting transaction: %v", err)
