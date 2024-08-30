@@ -11,6 +11,7 @@ import (
 
 type NodeID int
 const RootNodeID NodeID = 1
+const NoNodeID NodeID = -1
 
 type Synsetpath struct {
 	Path []int
@@ -312,4 +313,27 @@ func IsTableEmpty(db *sql.DB, tableName string) (bool, error) {
 		return false, fmt.Errorf("error checking if table is empty: %v", err)
 	}
 	return !exists, nil
+}
+
+func MostUrgentToImprove(db *sql.DB, nodesTable string, minSizeToConsider int) (NodeID, float64, error) {
+	query := fmt.Sprintf(`
+		SELECT id, loss
+		FROM %s
+		WHERE not has_children AND not being_analysed
+		AND data_quantity >= ?
+		ORDER BY loss DESC
+		LIMIT 1
+	`, nodesTable)
+
+	var id int
+	var loss float64
+	err := db.QueryRow(query, minSizeToConsider).Scan(&id, &loss)
+	if err == sql.ErrNoRows {
+		return NoNodeID, 0.0, nil
+	}
+	if err != nil {
+		return 0, 0, fmt.Errorf("error finding most urgent node to improve: %v", err)
+	}
+
+	return NodeID(id), loss, nil
 }

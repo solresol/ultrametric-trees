@@ -186,3 +186,85 @@ func TestIsTableEmpty(t *testing.T) {
 		t.Error("IsTableEmpty with non-existent table should return an error")
 	}
 }
+
+
+func TestMostUrgentToImprove(t *testing.T) {
+	db, err := sql.Open("sqlite3", ":memory:")
+	if err != nil {
+		t.Fatalf("Error opening database: %v", err)
+	}
+	defer db.Close()
+
+	// Create test table
+	_, err = db.Exec(`
+		CREATE TABLE nodes (
+			id INTEGER PRIMARY KEY,
+			loss FLOAT,
+			data_quantity INTEGER,
+			inner_region_node_id INTEGER,
+			outer_region_node INTEGER,
+			has_children bool,
+			being_analysed bool
+		);
+		INSERT INTO nodes (id, loss, data_quantity, inner_region_node_id, outer_region_node, has_children, being_analysed) VALUES
+			(1, 0.5, 100, NULL, NULL, false, true),
+			(2, 0.8, 200, NULL, NULL, false, false),
+			(3, 0.3, 50, 4, 5, true, false),
+			(4, 0.6, 750, NULL, NULL, false, false),
+			(5, 0.9, 25, NULL, NULL, false, true);
+	`)
+	if err != nil {
+		t.Fatalf("Error creating test table: %v", err)
+	}
+
+	tests := []struct {
+		name              string
+		minSizeToConsider int
+		expectedNodeID    NodeID
+		expectedLoss      float64
+		expectError       bool
+	}{
+		{"No size restriction", 0, 2, 0.8, false},
+		{"Minimum size 25", 25, 2, 0.8, false},
+		{"Minimum size 250", 250, 4, 0.6, false},
+		{"Minimum size 1000", 1000, NoNodeID, 0.0, false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			nodeID, loss, err := MostUrgentToImprove(db, "nodes", tt.minSizeToConsider)
+
+			if tt.expectError {
+				if err == nil {
+					t.Errorf("Expected an error, but got none")
+				}
+			} else {
+				if err != nil {
+					t.Fatalf("MostUrgentToImprove returned unexpected error: %v", err)
+				}
+
+				if nodeID != tt.expectedNodeID {
+					t.Errorf("MostUrgentToImprove returned nodeID = %v, want %v", nodeID, tt.expectedNodeID)
+				}
+
+				if loss != tt.expectedLoss {
+					t.Errorf("MostUrgentToImprove returned loss = %v, want %v", loss, tt.expectedLoss)
+				}
+			}
+		})
+	}
+
+	// Test with empty table
+	_, err = db.Exec("DELETE FROM nodes")
+	if err != nil {
+		t.Fatalf("Error deleting nodes: %v", err)
+	}
+
+	n, _, err := MostUrgentToImprove(db, "nodes", 0)
+	if err != nil {
+		t.Errorf("MostUrgentToImprove with empty table returned an error: %v", err)
+	}
+	if n != NoNodeID {
+		t.Errorf("MostUrgentToImprove with empty table did not return %d", NoNodeID)
+	}
+}
