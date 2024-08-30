@@ -24,7 +24,7 @@ func initializeFirstLeaf(db *sql.DB,
 	rng *rand.Rand) (error) {
 
 	// Create a table for the nodes hierarchy
-	query := fmt.Sprintf("create table if not exists %s (id integer primary key autoincrement, exemplar_value text, data_quantity integer, loss float, contextk int, inner_region_prefix text, inner_region_node_id integer, outer_region_node, when_created datetime default current_timestamp, when_children_populated datetime)", nodesTable)
+	query := fmt.Sprintf("create table if not exists %s (id integer primary key autoincrement, exemplar_value text, data_quantity integer, loss float, contextk int, inner_region_prefix text, inner_region_node_id integer, outer_region_node, when_created datetime default current_timestamp, when_children_populated datetime, has_children bool default false, being_analysed bool default false)", nodesTable)
 	_, err := db.Exec(query)
 	if err != nil {
 		return fmt.Errorf("Cannot create a table of nodes called %s: %v", nodesTable, err)
