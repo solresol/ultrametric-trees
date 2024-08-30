@@ -186,42 +186,17 @@ func initialisationRequired(db *sql.DB, trainingDataTable, nodeBucketTable, node
 // * inner_region_node = (the newly created inner node id)
 // * outer_region_node = (the newly created outer node id)
 
-func main() {
-	database := flag.String("database", "", "SQLite database file")
-	trainingDataTable := flag.String("training-data", "training_data", "Table name where the training data is stored")
-	nodeBucketTable := flag.String("node-bucket", "node_bucket", "Table name where the mapping between rows in the training data and their current nodes is stored")
-	nodesTable := flag.String("node-table", "nodes", "The table where the node hierarchy is stored")
-	exemplarGuesses := flag.Int("exemplar-guesses", 1000, "Number of exemplar guesses")
-	costGuesses := flag.Int("cost-guesses", 1000, "Number of cost guesses per exemplar")
-	seed := flag.Int64("seed", 1, "Random number seed")
-	nodeID := flag.Int("node-id", 1, "Node ID to process")
-	splitCountTry := flag.Int("split-count-try", 100, "Number of split attempts")
-	contextLength := flag.Int("context-length", 16, "Context length")
-	numCirclesPerSplit := flag.Int("num-circles-per-split", 10, "Number of circles to try per split")
-	flag.Parse()
-
-	if *database == "" {
-		log.Fatal("--database is required")
-	}
-
-	db, err := sql.Open("sqlite3", *database)
-	if err != nil {
-		log.Fatalf("Error opening database: %v", err)
-	}
-	defer db.Close()
-
-	rng := rand.New(rand.NewSource(*seed))
-
-	needsInit, err := initialisationRequired(db, *trainingDataTable, *nodeBucketTable, *nodesTable)
-	if err != nil {
-		log.Fatalf("Initialisation checks failed: %v", err)
-	}
-	if needsInit {
-		err = initializeFirstLeaf(db, *trainingDataTable, *nodeBucketTable, *nodesTable, *exemplarGuesses, *costGuesses, rng)
-		if err != nil {
-			log.Fatalf("Could not initialize first leaf: %v", err)
-		}
-	}
+func createGoodSplit(db *sql.DB,
+	nodesTable string,
+	nodeID exemplar.NodeID,
+	trainingDataTable string,
+	nodeBucketTable string,
+	splitCountTry int,
+	numCirclesPerSplit int,
+	exemplarGuesses int,
+	costGuesses int,
+	contextLength int,
+	rng *rand.Rand) (error) {
 
 	var bestContextK int
 	var bestCircle exemplar.Synsetpath
@@ -345,4 +320,78 @@ func main() {
 	fmt.Printf("Total Loss: %f\n", bestTotalLoss)
 	fmt.Printf("Inner Node ID: %d, Exemplar: %s, Size: %d\n", innerNodeID, bestInsideExemplar.String(), len(bestInsideRows))
 	fmt.Printf("Outer Node ID: %d, Exemplar: %s, Size: %d\n", outerNodeID, bestOutsideExemplar.String(), len(bestOutsideRows))
+
+	return nil
+}
+
+
+
+
+func main() {
+	database := flag.String("database", "", "SQLite database file")
+	trainingDataTable := flag.String("training-data", "training_data", "Table name where the training data is stored")
+	nodeBucketTable := flag.String("node-bucket", "node_bucket", "Table name where the mapping between rows in the training data and their current nodes is stored")
+	nodesTable := flag.String("node-table", "nodes", "The table where the node hierarchy is stored")
+	exemplarGuesses := flag.Int("exemplar-guesses", 1000, "Number of exemplar guesses")
+	costGuesses := flag.Int("cost-guesses", 1000, "Number of cost guesses per exemplar")
+	seed := flag.Int64("seed", 1, "Random number seed")
+	nodeID := flag.Int("node-id", 1, "Node ID to process")
+	splitCountTry := flag.Int("split-count-try", 100, "Number of split attempts")
+	contextLength := flag.Int("context-length", 16, "Context length")
+	numCirclesPerSplit := flag.Int("num-circles-per-split", 10, "Number of circles to try per split")
+	nodeSplittingThreshold := flag.Int("node-splitting-threshold", 1, "If a node is smaller than this, don't try to split it")
+	flag.Parse()
+
+	if *database == "" {
+		log.Fatal("--database is required")
+	}
+
+	db, err := sql.Open("sqlite3", *database)
+	if err != nil {
+		log.Fatalf("Error opening database: %v", err)
+	}
+	defer db.Close()
+
+	rng := rand.New(rand.NewSource(*seed))
+
+	needsInit, err := initialisationRequired(db, *trainingDataTable, *nodeBucketTable, *nodesTable)
+	if err != nil {
+		log.Fatalf("Initialisation checks failed: %v", err)
+	}
+	if needsInit {
+		err = initializeFirstLeaf(db, *trainingDataTable, *nodeBucketTable, *nodesTable, *exemplarGuesses, *costGuesses, rng)
+		if err != nil {
+			log.Fatalf("Could not initialize first leaf: %v", err)
+		}
+	}
+
+	// Here is where I want to make it a loop, have a time limit (perhaps), check for the
+	// next node to process, etc.
+
+	nextNode, currentCost, err := exemplar.MostUrgentToImprove(db, *nodesTable, *nodeSplittingThreshold)
+	if err != nil {
+		log.Fatalf("Could not find the most urgent node to work ing: %v", err)
+	}
+	if nextNode == exemplar.NoNodeID {
+		fmt.Printf("Training is complete")
+		return
+	}
+	fmt.Printf("Will split node %d because its current cost is %f\n", int(nextNode), currentCost)
+	query := fmt.Sprintf("update %s set being_analysed = true where id = %d", *nodesTable, nextNode)
+	_, err = db.Exec(query)
+	if err != nil {
+		log.Fatalf("Could not set being_analysed = true on row %d of %s", int(nextNode), *nodesTable)
+	}
+
+	err = createGoodSplit(db, *nodesTable, nextNode, *trainingDataTable, *nodeBucketTable, *splitCountTry, *numCirclesPerSplit, *exemplarGuesses, *costGuesses, *contextLength, rng)
+	if err != nil {
+		log.Fatalf("Could not split %s on node %s using training data in %s and node bucket information in %s (splitCountTry=%d, contextLength=%d because: %v", *nodesTable, *nodeID, *trainingDataTable, *nodeBucketTable, *splitCountTry, *contextLength, err)
+	}
+
+
+	query := fmt.Sprintf("update %s set being_analysed = false where id = %d", *nodesTable, nextNode)
+	_, err = db.Exec(query)
+	if err != nil {
+		log.Fatalf("Could not set being_analysed = false on row %d of %s", int(nextNode), *nodesTable)
+	}	
 }
