@@ -48,7 +48,7 @@ func (sp Synsetpath) String() string {
 
 func LoadRows(db *sql.DB, dataframeTable string, nodeBucketTable string, nodeID NodeID) ([]DataFrameRow, error) {
 	query := fmt.Sprintf("SELECT id, targetword FROM %s JOIN %s USING (id) WHERE node_id = ? order by id", dataframeTable, nodeBucketTable)
-	
+
 	rows, err := db.Query(query, nodeID)
 	if err != nil {
 		return nil, err
@@ -78,9 +78,9 @@ func LoadContextNWithinNode(db *sql.DB, dataframeTable string, nodeBucketTable s
 	if k < 1 || k > contextLength {
 		return nil, fmt.Errorf("k must be between 1 and %d", contextLength)
 	}
-	
+
 	query := fmt.Sprintf("SELECT id, context%d FROM %s JOIN %s USING (id) WHERE node_id = ? ORDER BY id", k, dataframeTable, nodeBucketTable)
-	
+
 	rows, err := db.Query(query, nodeID)
 	if err != nil {
 		return nil, err
@@ -113,19 +113,19 @@ func LoadContextNWithinNode(db *sql.DB, dataframeTable string, nodeBucketTable s
 
 func GetAllPossibleSynsets(rows []DataFrameRow) []Synsetpath {
 	synsetMap := make(map[string]Synsetpath)
-	
+
 	for _, row := range rows {
 		for i := 1; i <= len(row.TargetWord.Path); i++ {
 			truncated := Synsetpath{Path: row.TargetWord.Path[:i]}
 			synsetMap[truncated.String()] = truncated
 		}
 	}
-	
+
 	result := make([]Synsetpath, 0, len(synsetMap))
 	for _, synset := range synsetMap {
 		result = append(result, synset)
 	}
-	
+
 	return result
 }
 
@@ -140,7 +140,7 @@ func GetAllPossibleSynsets(rows []DataFrameRow) []Synsetpath {
 
 func SplitByFilter(source, target []DataFrameRow, synsetFilter Synsetpath) ([]DataFrameRow, []DataFrameRow) {
 	var inside, outside []DataFrameRow
-	
+
 	for i, src := range source {
 		if len(src.TargetWord.Path) >= len(synsetFilter.Path) &&
 			strings.HasPrefix(src.TargetWord.String(), synsetFilter.String()) {
@@ -149,7 +149,7 @@ func SplitByFilter(source, target []DataFrameRow, synsetFilter Synsetpath) ([]Da
 			outside = append(outside, target[i])
 		}
 	}
-	
+
 	return inside, outside
 }
 
@@ -172,7 +172,7 @@ func CalculateCost(exemplar, comparator Synsetpath) float64 {
 		}
 		commonPrefixLength++
 	}
-	
+
 	return math.Pow(2, -float64(commonPrefixLength))
 }
 
@@ -218,7 +218,7 @@ func FindBestExemplar(rows []DataFrameRow, exemplarGuesses, costGuesses int, rng
 	return bestExemplar, bestLoss, nil
 }
 
-func UpdateNodeIDs(db *sql.DB, table string, rowIDs []int, newNodeID NodeID) error {
+func UpdateNodeIDs(tx *sql.Tx, table string, rowIDs []int, newNodeID NodeID) error {
 	if len(rowIDs) == 0 {
 		return nil
 	}
@@ -232,28 +232,22 @@ func UpdateNodeIDs(db *sql.DB, table string, rowIDs []int, newNodeID NodeID) err
 			args[i+1] = id
 		}
 		query := fmt.Sprintf("UPDATE %s SET node_id = ? WHERE id IN (%s)", table, strings.Join(placeholders, ","))
-		_, err := db.Exec(query, args...)
+		_, err := tx.Exec(query, args...)
 		return err
 	}
 
 	// For large updates, use a temporary table
-	_, err := db.Exec("CREATE TEMPORARY TABLE temp_ids (id INTEGER PRIMARY KEY)")
+	_, err := tx.Exec("CREATE TEMPORARY TABLE temp_ids (id INTEGER PRIMARY KEY)")
 	if err != nil {
 		return err
 	}
-	defer db.Exec("DROP TABLE temp_ids")
-
-	tx, err := db.Begin()
-	if err != nil {
-		return err
-	}
-	defer tx.Rollback()
+	defer tx.Exec("DROP TABLE temp_ids")
 
 	stmt, err := tx.Prepare("INSERT INTO temp_ids (id) VALUES (?)")
 	if err != nil {
 		return err
 	}
-	defer stmt.Close()
+	// defer stmt.Close()  // needed?
 
 	for _, id := range rowIDs {
 		_, err = stmt.Exec(id)
@@ -267,8 +261,7 @@ func UpdateNodeIDs(db *sql.DB, table string, rowIDs []int, newNodeID NodeID) err
 	if err != nil {
 		return err
 	}
-
-	return tx.Commit()
+	return nil
 }
 
 
@@ -291,7 +284,7 @@ func CompareTableRowCounts(db *sql.DB, table1, table2 string) (bool, error) {
 
 func TableExists(db *sql.DB, tableName string) (bool, error) {
 	query := `
-		SELECT name FROM sqlite_master 
+		SELECT name FROM sqlite_master
 		WHERE type='table' AND name=?
 	`
 	var name string

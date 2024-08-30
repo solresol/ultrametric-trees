@@ -63,7 +63,7 @@ func initializeFirstLeaf(db *sql.DB,
 			nodeBucketTable, trainingDataTable, err)
 	}
 
-	// The node-mapping-to-row table will get a lot of queries searching on those columns; often 
+	// The node-mapping-to-row table will get a lot of queries searching on those columns; often
 	// because of updates.
 	query = fmt.Sprintf("create index if not exists %s_node_id on %s(node_id)", nodeBucketTable, nodeBucketTable)
 	_, err = db.Exec(query)
@@ -94,8 +94,8 @@ func initializeFirstLeaf(db *sql.DB,
 	// Great: now our top-level nodes table has an exemplar, a loss and a quantity. We're
 	// just about ready for the recursive training process to start.
 	_, err = db.Exec(`
-		UPDATE nodes 
-		SET exemplar_value = ?, loss = ?, data_quantity = ? 
+		UPDATE nodes
+		SET exemplar_value = ?, loss = ?, data_quantity = ?
 		WHERE id = ?
 	`, bestExemplar.String(), bestLoss, len(rows), exemplar.RootNodeID)
 	if err != nil {
@@ -113,7 +113,7 @@ func initialisationRequired(db *sql.DB, trainingDataTable, nodeBucketTable, node
 	if err != nil {
 		return true, fmt.Errorf("Could not detect whether %s exists: %v", trainingDataTable, err)
 	}
-	
+
 	nodeBucketTableExists, err := exemplar.TableExists(db, nodeBucketTable)
 	if err != nil {
 		return true, fmt.Errorf("Could not detect whether %s exists: %v", nodeBucketTable, err)
@@ -123,7 +123,7 @@ func initialisationRequired(db *sql.DB, trainingDataTable, nodeBucketTable, node
 	if err != nil {
 		return true, fmt.Errorf("Could not detect whether %s exists: %v", nodesTable, err)
 	}
-	
+
 	if !trainingDataExists {
 		return true, fmt.Errorf("%s does not exist", trainingDataTable)
 	}
@@ -165,7 +165,13 @@ func initialisationRequired(db *sql.DB, trainingDataTable, nodeBucketTable, node
 }
 
 
-//  How step: it iterates [split-count-try] times... each iteration consists of randomly picking a k for LoadContextNWithinNode, then it gets all the possible synsets that it returns; then it iterates [num-circles-per-split] times picking a random possible synset each time, calling exemplar.FindBestExemplar on the inside array and again on the outside array, and adding up the two losses.
+//  How createGoodSplit works: it iterates [split-count-try]
+//  times... each iteration consists of randomly picking a k for
+//  LoadContextNWithinNode, then it gets all the possible synsets that
+//  it returns; then it iterates [num-circles-per-split] times picking
+//  a random possible synset each time, calling
+//  exemplar.FindBestExemplar on the inside array and again on the
+//  outside array, and adding up the two losses.
 
 // In the end, it will have a contextK, a bestCircle, a total loss, a
 // best inside exemplar, the number of elements on the inside array, a
@@ -205,31 +211,31 @@ func createGoodSplit(db *sql.DB,
 	var bestInsideExemplar, bestOutsideExemplar exemplar.Synsetpath
 	var bestInsideRows, bestOutsideRows []exemplar.DataFrameRow
 
-	for i := 0; i < *splitCountTry; i++ {
-		k := rng.Intn(*contextLength) + 1
-		sourceRows, err := exemplar.LoadContextNWithinNode(db, *trainingDataTable, *nodeBucketTable, exemplar.NodeID(*nodeID), k, *contextLength)
+	for i := 0; i < splitCountTry; i++ {
+		k := rng.Intn(contextLength) + 1
+		sourceRows, err := exemplar.LoadContextNWithinNode(db, trainingDataTable, nodeBucketTable, nodeID, k, contextLength)
 		if err != nil {
-			log.Fatalf("Error loading context rows: %v", err)
+			return fmt.Errorf("Error loading context rows: %v", err)
 		}
 
-		targetRows, err := exemplar.LoadRows(db, *trainingDataTable, *nodeBucketTable, exemplar.NodeID(*nodeID))
+		targetRows, err := exemplar.LoadRows(db, trainingDataTable, nodeBucketTable, nodeID)
 		if err != nil {
-			log.Fatalf("Error loading target rows: %v", err)
+			return fmt.Errorf("Error loading target rows: %v", err)
 		}
 
 		possibleSynsets := exemplar.GetAllPossibleSynsets(sourceRows)
 
-		for j := 0; j < *numCirclesPerSplit; j++ {
+		for j := 0; j < numCirclesPerSplit; j++ {
 			randomSynset := possibleSynsets[rng.Intn(len(possibleSynsets))]
 			inside, outside := exemplar.SplitByFilter(sourceRows, targetRows, randomSynset)
 
-			insideExemplar, insideLoss, err := exemplar.FindBestExemplar(inside, *exemplarGuesses, *costGuesses, rng)
+			insideExemplar, insideLoss, err := exemplar.FindBestExemplar(inside, exemplarGuesses, costGuesses, rng)
 			if err != nil {
 				log.Printf("Error finding inside exemplar: %v", err)
 				continue
 			}
 
-			outsideExemplar, outsideLoss, err := exemplar.FindBestExemplar(outside, *exemplarGuesses, *costGuesses, rng)
+			outsideExemplar, outsideLoss, err := exemplar.FindBestExemplar(outside, exemplarGuesses, costGuesses, rng)
 			if err != nil {
 				log.Printf("Error finding outside exemplar: %v", err)
 				continue
@@ -254,7 +260,7 @@ func createGoodSplit(db *sql.DB,
 	// Start transaction
 	tx, err := db.Begin()
 	if err != nil {
-		log.Fatalf("Error starting transaction: %v", err)
+		fmt.Errorf("Error starting transaction: %v", err)
 	}
 	defer tx.Rollback()
 
@@ -266,7 +272,7 @@ func createGoodSplit(db *sql.DB,
 		RETURNING id
 	`, bestInsideExemplar.String(), len(bestInsideRows), insideLossOfBest).Scan(&innerNodeID)
 	if err != nil {
-		log.Fatalf("Error creating inner node: %v", err)
+		fmt.Errorf("Error creating inner node: %v", err)
 	}
 
 	// Create outer node
@@ -277,23 +283,24 @@ func createGoodSplit(db *sql.DB,
 		RETURNING id
 	`, bestOutsideExemplar.String(), len(bestOutsideRows), outsideLossOfBest).Scan(&outerNodeID)
 	if err != nil {
-		log.Fatalf("Error creating outer node: %v", err)
+		fmt.Errorf("Error creating outer node: %v", err)
 	}
 
 	// Update parent node
 	_, err = tx.Exec(`
 		UPDATE nodes
 		SET contextk = ?, inner_region_prefix = ?, inner_region_node_id = ?, outer_region_node = ?,
-                    when_children_populated = current_timestamp
+		    when_children_populated = current_timestamp, has_children = true
 		WHERE id = ?
-	`, bestContextK, bestCircle.String(), innerNodeID, outerNodeID, *nodeID)
+	`, bestContextK, bestCircle.String(), innerNodeID, outerNodeID, nodeID)
 	if err != nil {
-		log.Fatalf("Error updating parent node: %v", err)
+		fmt.Errorf("Error updating parent node: %v", err)
 	}
-
-	// Commit transaction
-	if err = tx.Commit(); err != nil {
-		log.Fatalf("Error committing transaction: %v", err)
+	query := fmt.Sprintf("update %s set being_analysed = false where id = %d", nodesTable, nodeID)
+	_, err = db.Exec(query)
+	if err != nil {
+		fmt.Errorf("Could not record that we are no longer analysing %d on table %s: %v",
+			nodeID, nodesTable, err)
 	}
 
 	// Update node_id for inside rows
@@ -301,8 +308,8 @@ func createGoodSplit(db *sql.DB,
 	for i, row := range bestInsideRows {
 		insideIDs[i] = row.RowID
 	}
-	if err := exemplar.UpdateNodeIDs(db, *nodeBucketTable, insideIDs, exemplar.NodeID(innerNodeID)); err != nil {
-		log.Fatalf("Error updating inside node IDs: %v", err)
+	if err := exemplar.UpdateNodeIDs(tx, nodeBucketTable, insideIDs, exemplar.NodeID(innerNodeID)); err != nil {
+		fmt.Errorf("Error updating inside node IDs: %v", err)
 	}
 
 	// Update node_id for outside rows
@@ -310,8 +317,13 @@ func createGoodSplit(db *sql.DB,
 	for i, row := range bestOutsideRows {
 		outsideIDs[i] = row.RowID
 	}
-	if err := exemplar.UpdateNodeIDs(db, *nodeBucketTable, outsideIDs, exemplar.NodeID(outerNodeID)); err != nil {
-		log.Fatalf("Error updating outside node IDs: %v", err)
+	if err := exemplar.UpdateNodeIDs(tx, nodeBucketTable, outsideIDs, exemplar.NodeID(outerNodeID)); err != nil {
+		fmt.Errorf("Error updating outside node IDs: %v", err)
+	}
+
+	// Commit transaction
+	if err = tx.Commit(); err != nil {
+		fmt.Errorf("Error committing transaction: %v", err)
 	}
 
 	fmt.Printf("Step completed successfully:\n")
@@ -393,5 +405,5 @@ func main() {
 	_, err = db.Exec(query)
 	if err != nil {
 		log.Fatalf("Could not set being_analysed = false on row %d of %s", int(nextNode), *nodesTable)
-	}	
+	}
 }
