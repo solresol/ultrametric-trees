@@ -30,6 +30,15 @@ func initializeFirstLeaf(db *sql.DB,
 		return fmt.Errorf("Cannot create a table of nodes called %s: %v", nodesTable, err)
 	}
 
+	// We really care about loss levels for childless nodes. Let's keep track of that
+	query = fmt.Sprintf("create index if not exists %s_children on %s(loss) where not has_children and not being_analysed",
+		nodesTable, nodesTable)
+	_, err = db.Exec(query)
+	if err != nil {
+		return fmt.Errorf("Cannot create a table of nodes called %s: %v", nodesTable, err)
+	}
+
+
 	// Populate it with the first row. We could do this later, but it's nice to have the half-ready
 	// state visible.
 	query = fmt.Sprintf("insert or ignore into %s (id) values (%d)", nodesTable, int(exemplar.RootNodeID))
