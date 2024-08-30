@@ -347,7 +347,6 @@ func main() {
 	exemplarGuesses := flag.Int("exemplar-guesses", 1000, "Number of exemplar guesses")
 	costGuesses := flag.Int("cost-guesses", 1000, "Number of cost guesses per exemplar")
 	seed := flag.Int64("seed", 1, "Random number seed")
-	nodeID := flag.Int("node-id", 1, "Node ID to process")
 	splitCountTry := flag.Int("split-count-try", 100, "Number of split attempts")
 	contextLength := flag.Int("context-length", 16, "Context length")
 	numCirclesPerSplit := flag.Int("num-circles-per-split", 10, "Number of circles to try per split")
@@ -397,11 +396,11 @@ func main() {
 
 	err = createGoodSplit(db, *nodesTable, nextNode, *trainingDataTable, *nodeBucketTable, *splitCountTry, *numCirclesPerSplit, *exemplarGuesses, *costGuesses, *contextLength, rng)
 	if err != nil {
-		log.Fatalf("Could not split %s on node %s using training data in %s and node bucket information in %s (splitCountTry=%d, contextLength=%d because: %v", *nodesTable, *nodeID, *trainingDataTable, *nodeBucketTable, *splitCountTry, *contextLength, err)
+		log.Fatalf("Could not split %s on node %d using training data in %s and node bucket information in %s (splitCountTry=%d, contextLength=%d because: %v", *nodesTable, int(nextNode), *trainingDataTable, *nodeBucketTable, *splitCountTry, *contextLength, err)
 	}
 
 
-	query := fmt.Sprintf("update %s set being_analysed = false where id = %d", *nodesTable, nextNode)
+	query = fmt.Sprintf("update %s set being_analysed = false where id = %d", *nodesTable, int(nextNode))
 	_, err = db.Exec(query)
 	if err != nil {
 		log.Fatalf("Could not set being_analysed = false on row %d of %s", int(nextNode), *nodesTable)
