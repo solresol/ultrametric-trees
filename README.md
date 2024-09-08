@@ -23,6 +23,17 @@ This creates a dataframe (in a table called `training_data`).
 
 Then run `./bin/train --database slm-w2.sqlite`
 
+## Advanced options
+
+If you want to train two models at once:
+
+`./bin/train --database slm-w2.sqlite --node-bucket model1mapping --node-table model1 --seed 1`
+
+`./bin/train --database slm-w2.sqlite --node-bucket model2mapping --node-table model2 --seed 2`
+
+(If you don't specify the seed, you'll end up with the same data in each model.)
+
+
 # To-do
 
 - We'll need a program that can annotate a sentence into senses. Converting the wordnetify python programs
@@ -45,8 +56,8 @@ Then run `./bin/train --database slm-w2.sqlite`
 - Training currently loads everything into memory. That's probably wasteful. (But it's not terrible, because
   we only do that up-front once)
   
-- Random forests rather than decision trees. Currently the node that a row belongs to is in the dataframe
-  itself. It should be in a separate table, so that we can be training multiple trees concurrently.
+- Random forests rather than decision trees. We need a way of saying
+  "randomly select which contexts to ignore"
   
 - A chatbot shell and/or CLI tool where you can ask it to complete a story.
 
@@ -56,5 +67,4 @@ Then run `./bin/train --database slm-w2.sqlite`
 - More test suite
 
 - More data
-
 

@@ -67,8 +67,7 @@ func getPath(db *sql.DB, wordID int, word, synset string) (WordData, error) {
 		err := db.QueryRow("SELECT path FROM synset_paths WHERE synset_name = ?", strings.ToLower(word)).Scan(&path)
 		if err != nil {
 			if err == sql.ErrNoRows {
-				// A new thing that we don't recognize, from a closed set
-				return WordData{WordID: wordID, Word: word, Synset: synset, Path: ""}, nil
+				return WordData{}, fmt.Errorf("Unrecognized word from a closed set: %s", strings.ToLower(word))
 			}
 			return WordData{}, err
 		}
@@ -144,7 +143,10 @@ func main() {
 	}
 
 	for _, storyID := range stories {
-		processStory(inputConn, outputConn, storyID, *contextLength, *outputTable)
+		err = processStory(inputConn, outputConn, storyID, *contextLength, *outputTable)
+		if err != nil {
+			log.Fatalf("Could not process story %d: %v", storyID, err)
+		}
 	}
 
 	fmt.Println("Data preparation completed successfully.")
@@ -214,17 +216,33 @@ func getStories(db *sql.DB, modulo, congruent int) ([]int, error) {
 	return stories, nil
 }
 
-func processStory(inputDB, outputDB *sql.DB, storyID, contextLength int, outputTable string) {
+func processStory(inputDB, outputDB *sql.DB, storyID, contextLength int, outputTable string) (error) {
 	words, err := getWordsForStory(inputDB, storyID)
 	if err != nil {
-		log.Printf("Error getting words for story %d: %v", storyID, err)
-		return
+		return fmt.Errorf("Error getting words for story %d: %v", storyID, err)
+	}
+
+	startOfText, err := getPath(inputDB, -1, "<START-OF-TEXT>", "(punctuation.other)")
+	if err != nil {
+		return fmt.Errorf("Could not get the <START-OF-TEXT> marker: %v\n", err)
+	}
+	// fmt.Printf("Start of text = %s\n", startOfText.Path)
+	
+	endOfText, err := getPath(inputDB, -1, "<END-OF-TEXT>", "(punctuation.other)")
+	if err != nil {
+		return fmt.Errorf("Could not get the <END-OF-TEXT> marker: %v\n", err)
 	}
 
 	buffer := make([]WordData, 0, contextLength+1)
+	for i := 0; i < contextLength; i++ {
+		buffer = append(buffer, startOfText)
+	}
 
 	for _, word := range words {
 		if word.Path == "" {
+			// If we can't find the path for a word, then we can't use this
+			// as a prediction token, nor can we use it for predicting anything.
+			// We'll have to refill the buffer from scratch
 			buffer = buffer[:0] // Clear the buffer
 			continue
 		}
@@ -232,13 +250,23 @@ func processStory(inputDB, outputDB *sql.DB, storyID, contextLength int, outputT
 		buffer = append(buffer, word)
 
 		if len(buffer) == contextLength+1 {
-			insertTrainingData(outputDB, buffer, contextLength, outputTable)
+			err = insertTrainingData(outputDB, buffer, contextLength, outputTable)
+			if err != nil {
+				return fmt.Errorf("Could not insert training data for word ID = %d (%s): %v",
+					word.WordID, word.Word, err)
+			}
 			buffer = buffer[1:] // Remove the oldest word
 		}
 	}
 
+	buffer = append(buffer, endOfText)
+	err = insertTrainingData(outputDB, buffer, contextLength, outputTable)
+	if err != nil {
+		return fmt.Errorf("Could not insert the end of text marker on story %d: %v", storyID, err)
+	}
 	// Clear the buffer at the end of the story
 	buffer = buffer[:0]
+	return nil
 }
 
 func getWordsForStory(db *sql.DB, storyID int) ([]WordData, error) {
@@ -276,11 +304,10 @@ func getWordsForStory(db *sql.DB, storyID int) ([]WordData, error) {
 	return words, nil
 }
 
-func insertTrainingData(db *sql.DB, buffer []WordData, contextLength int, outputTable string) {
+func insertTrainingData(db *sql.DB, buffer []WordData, contextLength int, outputTable string) (error) {
 	tx, err := db.Begin()
 	if err != nil {
-		log.Printf("Error starting transaction: %v", err)
-		return
+		return fmt.Errorf("Error starting transaction: %v", err)
 	}
 	defer tx.Rollback()
 
@@ -302,8 +329,7 @@ func insertTrainingData(db *sql.DB, buffer []WordData, contextLength int, output
 	}
 	_, err = tx.Exec(query, args...)
 	if err != nil {
-		log.Printf("Error inserting training data: %v", err)
-		return
+		return fmt.Errorf("Error inserting training data: %v", err)
 	}
 
 	// Update decodings table
@@ -314,13 +340,13 @@ func insertTrainingData(db *sql.DB, buffer []WordData, contextLength int, output
 			ON CONFLICT(path, word) DO UPDATE SET usage_count = usage_count + 1
 		`, word.Path, word.Word)
 		if err != nil {
-			log.Printf("Error updating decodings: %v", err)
-			return
+			return fmt.Errorf("Error updating decodings: %v", err)
 		}
 	}
 
 	err = tx.Commit()
 	if err != nil {
-		log.Printf("Error committing transaction: %v", err)
+		return fmt.Errorf("Error committing transaction: %v", err)
 	}
+	return nil
 }
