@@ -5,9 +5,8 @@ import (
 	"flag"
 	"fmt"
 	"log"
-	"sort"
-	"strings"
 	"time"
+	"strings"
 
 	_ "github.com/mattn/go-sqlite3"
 
@@ -55,7 +54,7 @@ func displayTree(db *sql.DB,nodes []node.Node) (error) {
 	}
 
 	// Start the recursive display from the root node
-	err := displayNodeAndChildren(db, "", int(exemplar.RootNodeID), nodeMap)
+	err := displayNodeAndChildren(db, 0, int(exemplar.RootNodeID), nodeMap)
 	return err
 	
 }
@@ -74,7 +73,8 @@ func getWordFromPath(db *sql.DB, path string) (bool, string, error) {
 	
 }
 
-func displayNodeAndChildren(db *sql.DB, prefix string, nodeID int, nodeMap map[int]node.Node) (error) {
+func displayNodeAndChildren(db *sql.DB, depth int, nodeID int, nodeMap map[int]node.Node) (error) {
+	prefix := strings.Repeat(" ", depth)
 	n, exists := nodeMap[nodeID]
 	if !exists {
 		return fmt.Errorf("%s- Node %d: Not found\n", prefix, nodeID)
@@ -87,40 +87,56 @@ func displayNodeAndChildren(db *sql.DB, prefix string, nodeID int, nodeMap map[i
 		suggestion = n.ExemplarValue.String
 	}
 
-	if n.InnerRegionNodeID.Valid && n.OuterRegionNode.Valid {
-		exists, region, err := getWordFromPath(db, n.InnerRegionPrefix.String)
-		if !exists {
-			region = n.InnerRegionPrefix.String
-		}
-		err = displayNodeAndChildren(db, prefix+" ", int(n.InnerRegionNodeID.Int64), nodeMap)
-		if err != nil {
-			return err
-		}
-		fmt.Printf("%s  / when context%d is inside [%s]\n", prefix, n.ContextK.Int64, region)
-		fmt.Printf("%s- Node %d: {suggested [%s], loss %f, %d usages}\n", prefix, n.ID, suggestion,
-			n.Loss.Float64, n.DataQuantity.Int64)
-		fmt.Printf("%s  \\ when context%d is outside %s\n", prefix, n.ContextK.Int64, region)
-		err = displayNodeAndChildren(db, prefix+" ", int(n.OuterRegionNode.Int64), nodeMap)
-		if err != nil {
-			return err
-		}
-			
+	showChildren := true
+	if !n.InnerRegionNodeID.Valid || !n.OuterRegionNode.Valid {
+		showChildren = false
 	} else {
-		fmt.Printf("%s- Node %d: suggestion is %s, loss %f, %d usages\n", prefix, n.ID, suggestion, n.Loss.Float64, n.DataQuantity.Int64)
+		_, exists = nodeMap[int(n.InnerRegionNodeID.Int64)]
+		if !exists {
+			showChildren = false
+		}
+		_, exists = nodeMap[int(n.OuterRegionNode.Int64)]
+		if !exists {
+			showChildren = false
+		}
+	}
+	if !showChildren {
+		fmt.Printf("%s- Depth %d, Node %d: suggestion is %s, loss %f, %d usages\n", prefix, depth, n.ID, suggestion, n.Loss.Float64, n.DataQuantity.Int64)
+		return nil;
+	}
+
+	exists, region, err := getWordFromPath(db, n.InnerRegionPrefix.String)
+	if !exists {
+		region = n.InnerRegionPrefix.String
+	}
+	fmt.Printf("%s- Depth %d, Node %d: {suggested [%s], loss %f, %d usages}\n", prefix, depth, n.ID, suggestion,
+		n.Loss.Float64, n.DataQuantity.Int64)
+	fmt.Printf("%s  \\ when context%d is inside [%s]\n", prefix, n.ContextK.Int64, region)
+	err = displayNodeAndChildren(db, depth + 1, int(n.InnerRegionNodeID.Int64), nodeMap)
+	if err != nil {
+		return err
+	}
+
+	// Check to see if the split on the outer node is using the same feature variable as
+	// the inner node. If it is, then we don't have nested if statements, we have a case
+	// statement, which slightly changes the way we want to display it.
+	grandchildAdoption := false
+	outerChild, exists := nodeMap[int(n.OuterRegionNode.Int64)]
+	if exists {
+		if outerChild.ContextK.Int64 == n.ContextK.Int64 {
+			grandchildAdoption = true
+		}
+	}
+
+	if grandchildAdoption {
+		err = displayNodeAndChildren(db, depth, int(n.OuterRegionNode.Int64), nodeMap)
+	} else {
+		fmt.Printf("%s  \\ when context%d is outside %s\n", prefix, n.ContextK.Int64, region)
+		err = displayNodeAndChildren(db, depth + 1, int(n.OuterRegionNode.Int64), nodeMap)
+	}
+	if err != nil {
+		return err
 	}
 	return nil;
 }
 
-func displayNode(n node.Node, childMap map[int][]node.Node, depth int) {
-	indent := strings.Repeat(" ", depth)
-	fmt.Printf("%s- Node %d: %s\n", indent, n.ID, n.ExemplarValue.String)
-
-	children := childMap[n.ID]
-	sort.Slice(children, func(i, j int) bool {
-		return children[i].ID < children[j].ID
-	})
-
-	for _, child := range children {
-		displayNode(child, childMap, depth+1)
-	}
-}
