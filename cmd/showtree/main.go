@@ -20,7 +20,12 @@ func main() {
 	timestamp := flag.String("time", "", "Timestamp to display nodes (format: 2006-01-02 15:04:05)")
 	flag.Parse()
 
-	if *dbPath == "" || *timestamp == "" {
+	if *timestamp == "" {
+		currentTime := time.Now().Format("2006-01-02 15:04:05")
+		timestamp = &currentTime
+	}
+
+	if *dbPath == "" {
 		log.Fatal("Please provide both database path and timestamp")
 	}
 
@@ -54,7 +59,7 @@ func displayTree(db *sql.DB,nodes []node.Node) (error) {
 	}
 
 	// Start the recursive display from the root node
-	err := displayNodeAndChildren(db, 0, int(exemplar.RootNodeID), nodeMap)
+	err := displayNodeAndChildren(db, 0, int(exemplar.RootNodeID), nodeMap, "", "[DEFAULT]", false)
 	return err
 	
 }
@@ -73,7 +78,7 @@ func getWordFromPath(db *sql.DB, path string) (bool, string, error) {
 	
 }
 
-func displayNodeAndChildren(db *sql.DB, depth int, nodeID int, nodeMap map[int]node.Node) (error) {
+func displayNodeAndChildren(db *sql.DB, depth int, nodeID int, nodeMap map[int]node.Node, insideMessage string, outsideOfMessage string, nodeWasInside bool) (error) {
 	prefix := strings.Repeat(" ", depth)
 	n, exists := nodeMap[nodeID]
 	if !exists {
@@ -88,20 +93,26 @@ func displayNodeAndChildren(db *sql.DB, depth int, nodeID int, nodeMap map[int]n
 	}
 
 	showChildren := true
-	if !n.InnerRegionNodeID.Valid || !n.OuterRegionNode.Valid {
+	if !n.InnerRegionNodeID.Valid || !n.OuterRegionNodeID.Valid {
 		showChildren = false
 	} else {
 		_, exists = nodeMap[int(n.InnerRegionNodeID.Int64)]
 		if !exists {
 			showChildren = false
 		}
-		_, exists = nodeMap[int(n.OuterRegionNode.Int64)]
+		_, exists = nodeMap[int(n.OuterRegionNodeID.Int64)]
 		if !exists {
 			showChildren = false
 		}
 	}
+	var myMessage string
+	if nodeWasInside {
+		myMessage = insideMessage
+	} else {
+		myMessage = outsideOfMessage
+	}
 	if !showChildren {
-		fmt.Printf("%s- Depth %d, Node %d: suggestion is %s, loss %f, %d usages\n", prefix, depth, n.ID, suggestion, n.Loss.Float64, n.DataQuantity.Int64)
+		fmt.Printf("%s- Depth %d, Node %d: suggestion is %s when %s, loss %f, %d usages\n", prefix, depth, n.ID, suggestion, myMessage, n.Loss.Float64, n.DataQuantity.Int64)
 		return nil;
 	}
 
@@ -109,31 +120,42 @@ func displayNodeAndChildren(db *sql.DB, depth int, nodeID int, nodeMap map[int]n
 	if !exists {
 		region = n.InnerRegionPrefix.String
 	}
-	fmt.Printf("%s- Depth %d, Node %d: {suggested [%s], loss %f, %d usages}\n", prefix, depth, n.ID, suggestion,
+	fmt.Printf("%s- Depth %d, Node %d: {suggested [%s] when %s, loss %f, %d usages}\n", prefix, depth, n.ID, suggestion, myMessage,
 		n.Loss.Float64, n.DataQuantity.Int64)
-	fmt.Printf("%s  \\ when context%d is inside [%s]\n", prefix, n.ContextK.Int64, region)
-	err = displayNodeAndChildren(db, depth + 1, int(n.InnerRegionNodeID.Int64), nodeMap)
-	if err != nil {
-		return err
-	}
-
 	// Check to see if the split on the outer node is using the same feature variable as
 	// the inner node. If it is, then we don't have nested if statements, we have a case
 	// statement, which slightly changes the way we want to display it.
 	grandchildAdoption := false
-	outerChild, exists := nodeMap[int(n.OuterRegionNode.Int64)]
+	outerChild, exists := nodeMap[int(n.OuterRegionNodeID.Int64)]
 	if exists {
 		if outerChild.ContextK.Int64 == n.ContextK.Int64 {
 			grandchildAdoption = true
 		}
 	}
 
+	var outerChildMessage string
 	if grandchildAdoption {
-		err = displayNodeAndChildren(db, depth, int(n.OuterRegionNode.Int64), nodeMap)
+		outerChildMessage = fmt.Sprintf("(%s,%s)", outsideOfMessage, region)
 	} else {
-		fmt.Printf("%s  \\ when context%d is outside %s\n", prefix, n.ContextK.Int64, region)
-		err = displayNodeAndChildren(db, depth + 1, int(n.OuterRegionNode.Int64), nodeMap)
+		outerChildMessage = fmt.Sprintf("context%d is outside %s", n.ContextK.Int64, region)
 	}
+
+
+	insideChildMessage :=  fmt.Sprintf("context%d is inside [%s]", n.ContextK.Int64, region)
+
+	err = displayNodeAndChildren(db, depth + 1, int(n.InnerRegionNodeID.Int64), nodeMap, insideChildMessage, outerChildMessage, true)
+	if err != nil {
+		return err
+	}
+
+	
+
+	if grandchildAdoption {
+		err = displayNodeAndChildren(db, depth, int(n.OuterRegionNodeID.Int64), nodeMap, "", outerChildMessage, false)
+	} else {
+		err = displayNodeAndChildren(db, depth + 1, int(n.OuterRegionNodeID.Int64), nodeMap, "", outerChildMessage, false)
+	}
+		
 	if err != nil {
 		return err
 	}

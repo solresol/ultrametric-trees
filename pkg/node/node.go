@@ -15,7 +15,7 @@ type Node struct {
 	ContextK              sql.NullInt64
 	InnerRegionPrefix     sql.NullString
 	InnerRegionNodeID     sql.NullInt64
-	OuterRegionNode       sql.NullInt64
+	OuterRegionNodeID     sql.NullInt64
 	WhenCreated           time.Time
 	WhenChildrenPopulated sql.NullTime
 	HasChildren           bool
@@ -35,7 +35,7 @@ func FetchNodes(db *sql.DB, tableName string) ([]Node, error) {
 		var n Node
 		err := rows.Scan(
 			&n.ID, &n.ExemplarValue, &n.DataQuantity, &n.Loss, &n.ContextK,
-			&n.InnerRegionPrefix, &n.InnerRegionNodeID, &n.OuterRegionNode, &n.WhenCreated,
+			&n.InnerRegionPrefix, &n.InnerRegionNodeID, &n.OuterRegionNodeID, &n.WhenCreated,
 			&n.WhenChildrenPopulated, &n.HasChildren, &n.BeingAnalysed,
 		)
 		if err != nil {
