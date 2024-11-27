@@ -14,7 +14,7 @@ import (
 type WordData struct {
 	WordID int
 	Word   string
-	Synset string
+	Synset sql.NullString
 	Path   string
 }
 
@@ -43,12 +43,12 @@ func isEnumeratedPseudoSynset(synset string) bool {
 	return enumeratedSynsets[synset]
 }
 
-func getPath(db *sql.DB, wordID int, word, synset string) (WordData, error) {
-	if synset == "" {
+func getPath(db *sql.DB, wordID int, word string, synset sql.NullString) (WordData, error) {
+	if !synset.Valid || synset.String == "" {
 		return WordData{WordID: wordID, Word: word, Synset: synset, Path: ""}, nil
 	}
 
-	fields := strings.Split(synset, ".")
+	fields := strings.Split(synset.String, ".")
 	if len(fields) == 3 {
 		var path string
 		err := db.QueryRow("SELECT path FROM synset_paths WHERE synset_name = ?", synset).Scan(&path)
