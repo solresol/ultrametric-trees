@@ -7,6 +7,8 @@ import (
 	"sort"
 )
 
+// I'd like to change the type of these nodes from int to a nodeID type
+
 type Node struct {
 	ID                    int
 	ExemplarValue         sql.NullString
