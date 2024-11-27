@@ -68,3 +68,8 @@ If you want to train two models at once:
 
 - More data
 
+- A tool where you can ask about a particular node, and it will tell you the path taken to get there.
+  I would like to double check that the same context doesn't appear twice. That should be a unit test of 
+  some kind, I think
+
+- Maybe some kind of (interactive?) tool where you can look at a predicted word, and see the reasoning
