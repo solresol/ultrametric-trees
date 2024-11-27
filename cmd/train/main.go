@@ -353,6 +353,7 @@ func main() {
 	numCirclesPerSplit := flag.Int("num-circles-per-split", 10, "Number of circles to try per split")
 	nodeSplittingThreshold := flag.Int("node-splitting-threshold", 1, "If a node is smaller than this, don't try to split it")
 	minRunTime := flag.Duration("time", time.Hour * 1000000, "Minimum amount of time to run the program (e.g., 10s, 5m)")
+	solarMonitor := flag.String("solar-monitor", "", "Hostname of the Enphase system to query to see if there is spare power available for training")
 
 	flag.Parse()
 	fmt.Printf("Running for at least %v...\n", *minRunTime)
