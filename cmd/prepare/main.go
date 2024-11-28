@@ -135,14 +135,21 @@ func main() {
 	}
 	defer outputConn.Close()
 
+	log.Printf("Creating tables")
+
 	createOutputTables(outputConn, *contextLength, *outputTable)
+
+	log.Printf("Getting stories")
 
 	stories, err := getStories(inputConn, *modulo, *congruent)
 	if err != nil {
 		log.Fatalf("Error getting stories: %v", err)
 	}
 
-	for _, storyID := range stories {
+	log.Printf("%d stories to process", len(stories))
+
+	for idx, storyID := range stories {
+		log.Printf("Processing story %d: %d/%d", storyID, idx, len(stories))
 		err = processStory(inputConn, outputConn, storyID, *contextLength, *outputTable)
 		if err != nil {
 			log.Fatalf("Could not process story %d: %v", storyID, err)
@@ -244,17 +251,26 @@ func processStory(inputDB, outputDB *sql.DB, storyID, contextLength int, outputT
 		buffer = append(buffer, startOfText)
 	}
 
-	for _, word := range words {
+	for idx, word := range words {
+		if (idx % 100 == 0) || (idx == len(words)-1) {
+			log.Printf("Words added: %d/%d", idx, len(words))
+		}
 		if word.Path == "" {
 			// If we can't find the path for a word, then we can't use this
 			// as a prediction token, nor can we use it for predicting anything.
 			// We'll have to refill the buffer from scratch
+
+			// Addendum. Is this true? Maybe the empty path is a thing
+			// we can use.
 			buffer = buffer[:0] // Clear the buffer
 			continue
 		}
 
 		buffer = append(buffer, word)
 
+		// This isn't quite right either. We might want to train on texts
+		// that are shorter than the contextLength (the beginning of a story
+		// for example).
 		if len(buffer) == contextLength+1 {
 			err = insertTrainingData(outputDB, buffer, contextLength, outputTable)
 			if err != nil {
