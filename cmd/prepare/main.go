@@ -62,7 +62,7 @@ func getPath(db *sql.DB, wordID int, word string, synset sql.NullString) (WordDa
 	}
 
 	// Handle pseudo-synsets
-	if isEnumeratedPseudoSynset(synset) {
+	if isEnumeratedPseudoSynset(synset.String) {
 		var path string
 		err := db.QueryRow("SELECT path FROM synset_paths WHERE synset_name = ?", strings.ToLower(word)).Scan(&path)
 		if err != nil {
@@ -74,7 +74,7 @@ func getPath(db *sql.DB, wordID int, word string, synset sql.NullString) (WordDa
 		return WordData{WordID: wordID, Word: word, Synset: synset, Path: path}, nil
 	}
 
-	prefix, ok := hashedPseudoSynsetPrefix[synset]
+	prefix, ok := hashedPseudoSynsetPrefix[synset.String]
 	if !ok {
 		return WordData{}, fmt.Errorf("unknown pseudo-synset: %s", synset)
 	}
@@ -222,13 +222,19 @@ func processStory(inputDB, outputDB *sql.DB, storyID, contextLength int, outputT
 		return fmt.Errorf("Error getting words for story %d: %v", storyID, err)
 	}
 
-	startOfText, err := getPath(inputDB, -1, "<START-OF-TEXT>", "(punctuation.other)")
+	startOfText, err := getPath(inputDB, -1, "<START-OF-TEXT>", sql.NullString{
+		Valid: true,
+		String: "(punctuation.other)",
+	})
 	if err != nil {
 		return fmt.Errorf("Could not get the <START-OF-TEXT> marker: %v\n", err)
 	}
 	// fmt.Printf("Start of text = %s\n", startOfText.Path)
 	
-	endOfText, err := getPath(inputDB, -1, "<END-OF-TEXT>", "(punctuation.other)")
+	endOfText, err := getPath(inputDB, -1, "<END-OF-TEXT>", sql.NullString{
+		Valid: true,
+		String: "(punctuation.other)",
+	})
 	if err != nil {
 		return fmt.Errorf("Could not get the <END-OF-TEXT> marker: %v\n", err)
 	}
@@ -287,7 +293,8 @@ func getWordsForStory(db *sql.DB, storyID int) ([]WordData, error) {
 	var words []WordData
 	for rows.Next() {
 		var wordID int
-		var word, synset string
+		var word string
+		var synset sql.NullString
 		if err := rows.Scan(&wordID, &word, &synset); err != nil {
 			return nil, err
 		}
