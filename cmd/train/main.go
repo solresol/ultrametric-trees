@@ -2,15 +2,19 @@ package main
 
 import (
 	"database/sql"
+	"encoding/json"
 	"flag"
 	"fmt"
+	"io"
 	"log"
 	"math/rand"
+	"net/http"
 	"time"
 
 	"github.com/solresol/ultrametric-trees/pkg/exemplar"
 	_ "github.com/mattn/go-sqlite3"
 )
+
 
 // Initialises a table of node-mapping-to-row with
 // exemplar.RootNodeID.  It then uses a probabilistic estimate to find
@@ -340,6 +344,61 @@ func createGoodSplit(db *sql.DB,
 
 
 
+
+type SolarData struct {
+	Production  []ProductionData `json:"production"`
+	Consumption []ProductionData `json:"consumption"`
+}
+
+type ProductionData struct {
+	WNow float64 `json:"wNow,string"`
+}
+
+func getNetCurrentSolarProduction(solarMonitor string) (float64, error) {
+	if solarMonitor == "" {
+		return 0, fmt.Errorf("solar monitor hostname not provided")
+	}
+
+	// Create HTTP client with timeout
+	client := &http.Client{
+		Timeout: 10 * time.Second,
+	}
+
+	// Construct URL and make request
+	url := fmt.Sprintf("http://%s/production.json", solarMonitor)
+	resp, err := client.Get(url)
+	if err != nil {
+		return 0, fmt.Errorf("failed to fetch solar data: %v", err)
+	}
+	defer resp.Body.Close()
+
+	// Read response body
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return 0, fmt.Errorf("failed to read response body: %v", err)
+	}
+
+	// Parse JSON response
+	var data SolarData
+	if err := json.Unmarshal(body, &data); err != nil {
+		return 0, fmt.Errorf("failed to parse JSON response: %v", err)
+	}
+
+	// Verify we have both production and consumption data
+	if len(data.Production) < 2 || len(data.Consumption) == 0 {
+		return 0, fmt.Errorf("incomplete solar data received")
+	}
+
+	// Calculate net production (production - consumption)
+	// Production is at index 1 as per requirement
+	production := data.Production[1].WNow
+	consumption := data.Consumption[0].WNow
+
+	return production - consumption, nil
+}
+
+
+
 func main() {
 	database := flag.String("database", "", "SQLite database file")
 	trainingDataTable := flag.String("training-data", "training_data", "Table name where the training data is stored")
@@ -356,7 +415,7 @@ func main() {
 	solarMonitor := flag.String("solar-monitor", "", "Hostname of the Enphase system to query to see if there is spare power available for training")
 
 	flag.Parse()
-	fmt.Printf("Running for at least %v...\n", *minRunTime)
+	log.Printf("Running for at least %v...\n", *minRunTime)
 	timer := time.NewTimer(*minRunTime)
 
 	if *database == "" {
@@ -383,6 +442,20 @@ func main() {
 	}
 
 	for {
+		if *solarMonitor != "" {
+			netProduction, err := getNetCurrentSolarProduction(*solarMonitor)
+			if err != nil {
+				// Just assume that we have power. This is a false
+				// assumption, but it's better than all the alternatives
+			} else {
+				if (netProduction < 0.0) {
+					log.Printf("Net solar production = %.2f watts. Not enough power to run computations. Sleeping for 5 minutes", netProduction)
+					time.Sleep(5 * time.Minute)
+					continue
+				}
+				log.Printf("Net solar production = %.2f watts, let's use it!", netProduction)
+			}
+		}
 		select {
 		case <- timer.C:
 			break;
