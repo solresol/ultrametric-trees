@@ -161,12 +161,12 @@ func main() {
 
 func createOutputTables(db *sql.DB, contextLength int, outputTable string) {
 	// Create training_data table
-	query := fmt.Sprintf("CREATE TABLE IF NOT EXISTS %s (id INTEGER PRIMARY KEY AUTOINCREMENT, targetword TEXT", outputTable)
+	query := fmt.Sprintf("CREATE TABLE IF NOT EXISTS %s (id INTEGER PRIMARY KEY AUTOINCREMENT, targetword TEXT, targetword_id INTEGER", outputTable)
 	for i := 1; i <= contextLength; i++ {
 		query += fmt.Sprintf(", context%d TEXT", i)
 	}
-	query += ")"
-	fmt.Printf("Executing %s\n", query)
+	query += ", when_added datetime default current_timestamp)"
+	log.Printf("Executing %s\n", query)
 
 	_, err := db.Exec(query)
 	if err != nil {
@@ -196,6 +196,19 @@ func createOutputTables(db *sql.DB, contextLength int, outputTable string) {
 	if err != nil {
 		log.Fatalf("Error creating index on decodings.word: %v", err)
 	}
+	
+	query = fmt.Sprintf("CREATE INDEX IF NOT EXISTS %s_targetword ON %s (targetword)", outputTable, outputTable)
+	_, err = db.Exec(query)
+	if err != nil {
+		log.Fatalf("Error creating targetword index: %v", err)
+	}
+
+	query = fmt.Sprintf("CREATE INDEX IF NOT EXISTS %s_by_time ON %s (when_added)", outputTable, outputTable)
+	_, err = db.Exec(query)
+	if err != nil {
+		log.Fatalf("Error creating when_added index: %v", err)
+	}
+	log.Printf("All indexes are in place")
 }
 
 
@@ -328,6 +341,19 @@ func getWordsForStory(db *sql.DB, storyID int) ([]WordData, error) {
 }
 
 func insertTrainingData(db *sql.DB, buffer []WordData, contextLength int, outputTable string) (error) {
+	query := fmt.Sprintf("select 1 from %s where targetword_id = %d limit 1", outputTable, buffer[contextLength].WordID)
+	rows, err := db.Query(query)
+	rows.Close()
+	if err == sql.ErrNoRows {
+		// Then we'll need to add it
+	} else if err == nil {
+		// It already exists. Don't need to insert anything
+		return nil
+	} else {
+		// Something really bad happened
+		return err
+	}
+	
 	tx, err := db.Begin()
 	if err != nil {
 		return fmt.Errorf("Error starting transaction: %v", err)
@@ -335,21 +361,22 @@ func insertTrainingData(db *sql.DB, buffer []WordData, contextLength int, output
 	defer tx.Rollback()
 
 	// Insert into training_data table
-	query := fmt.Sprintf("INSERT INTO %s (targetword", outputTable)
+	query = fmt.Sprintf("INSERT INTO %s (targetword", outputTable)
 	for i := 1; i <= contextLength; i++ {
 		query += fmt.Sprintf(", context%d", i)
 	}
-	query += ") VALUES (?"
+	query += ", targetword_id) VALUES (?"
 	for i := 1; i <= contextLength; i++ {
 		query += ", ?"
 	}
-	query += ")"
+	query += ",?)"
 
-	args := make([]interface{}, contextLength+1)
+	args := make([]interface{}, contextLength+2)
 	args[0] = buffer[contextLength].Path
 	for i := 0; i < contextLength; i++ {
 		args[i+1] = buffer[contextLength-1-i].Path
 	}
+	args[contextLength+1] = buffer[contextLength].WordID
 	_, err = tx.Exec(query, args...)
 	if err != nil {
 		return fmt.Errorf("Error inserting training data: %v", err)
