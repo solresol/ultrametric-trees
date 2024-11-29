@@ -299,16 +299,16 @@ func getStories(db *sql.DB, modulo, congruent int) (<-chan StoryIteration, error
 	return storyChannel, nil
 }
 
-func processStory(inputDB, outputDB *sql.DB, storyID, contextLength int, outputTable string) (error) {
+func processStory(inputDB, outputDB *sql.DB, storyID, contextLength int, outputTable string) (int, int, error) {
 	log.Printf("Processing story %d with context length %d into %s", storyID, contextLength, outputTable)
 	words, annotationCount, err := getWordsForStory(inputDB, storyID)
 	if err != nil {
-		return fmt.Errorf("Error getting words for story %d: %v", storyID, err)
+		return 0, 0, fmt.Errorf("Error getting words for story %d: %v", storyID, err)
 	}
 
 	if annotationCount == 0 {
 		log.Printf("Story %d has no annotated words in it. Skipping.", storyID)
-		return nil
+		return 0, 0, nil
 	}
 
 	log.Printf("Found %d words in story %d, of which %d were annotated", len(words), storyID, annotationCount)
@@ -318,7 +318,7 @@ func processStory(inputDB, outputDB *sql.DB, storyID, contextLength int, outputT
 		String: "(punctuation.other)",
 	})
 	if err != nil {
-		return fmt.Errorf("Could not get the <START-OF-TEXT> marker: %v\n", err)
+		return 0, 0, fmt.Errorf("Could not get the <START-OF-TEXT> marker: %v\n", err)
 	}
 	// fmt.Printf("Start of text = %s\n", startOfText.Path)
 
@@ -327,7 +327,7 @@ func processStory(inputDB, outputDB *sql.DB, storyID, contextLength int, outputT
 		String: "(punctuation.other)",
 	})
 	if err != nil {
-		return fmt.Errorf("Could not get the <END-OF-TEXT> marker: %v\n", err)
+		return 0, 0, fmt.Errorf("Could not get the <END-OF-TEXT> marker: %v\n", err)
 	}
 
 	buffer := make([]WordData, 0, contextLength+1)
