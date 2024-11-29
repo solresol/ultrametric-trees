@@ -440,24 +440,23 @@ func getWordsForStory(db *sql.DB, storyID int) ([]WordData, int, error) {
 }
 
 func insertTrainingData(db *sql.DB, buffer []WordData, contextLength int, outputTable string) (bool, error) {
-	query := fmt.Sprintf("select 1 from %s where targetword_id = %d limit 1", outputTable, buffer[contextLength].WordID)
-	rows, err := db.Query(query)
-	rows.Close()
-	if err == sql.ErrNoRows {
-		// Then we'll need to add it
-	} else if err == nil {
-		// It already exists. Don't need to insert anything
-		return true,nil
-	} else {
-		// Something really bad happened
-		return false,err
+	query := fmt.Sprintf("select count(*) from %s where targetword_id = %d", outputTable, buffer[contextLength].WordID)
+	var numberOfAppearances int
+	err := db.QueryRow(query).Scan(&numberOfAppearances)
+	if err != nil {
+		return false, fmt.Errorf("Could not count the appearances of targetword_id = %d: %v", buffer[contextLength].WordID, err)
 	}
-
+	if numberOfAppearances > 1 {
+		return true, fmt.Errorf("The word ID = %d appears %d times in the database",  buffer[contextLength].WordID, numberOfAppearances)
+	}
+	if numberOfAppearances == 1 {
+		// It already exists, quite normal situation. Don't need to insert anything
+		return true,nil
+	}
 	tx, err := db.Begin()
 	if err != nil {
 		return false,fmt.Errorf("Error starting transaction: %v", err)
 	}
-	defer tx.Rollback()
 
 	// Insert into training_data table
 	query = fmt.Sprintf("INSERT INTO %s (targetword", outputTable)
@@ -478,6 +477,7 @@ func insertTrainingData(db *sql.DB, buffer []WordData, contextLength int, output
 	args[contextLength+1] = buffer[contextLength].WordID
 	_, err = tx.Exec(query, args...)
 	if err != nil {
+		tx.Rollback()
 		return false,fmt.Errorf("Error inserting training data: %v", err)
 	}
 
@@ -495,6 +495,7 @@ func insertTrainingData(db *sql.DB, buffer []WordData, contextLength int, output
 
 	err = tx.Commit()
 	if err != nil {
+		tx.Rollback()
 		return false,fmt.Errorf("Error committing transaction: %v", err)
 	}
 	return false,nil
