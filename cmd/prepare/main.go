@@ -263,7 +263,7 @@ func getStories(db *sql.DB, modulo, congruent int) (<-chan StoryIteration, error
 
 	var storyIDs []int
 	defer rows.Close()
-	
+
 	for rows.Next() {
 		var storyID int
 		if err := rows.Scan(&storyID); err != nil {
@@ -271,7 +271,7 @@ func getStories(db *sql.DB, modulo, congruent int) (<-chan StoryIteration, error
 		}
 		storyIDs = append(storyIDs, storyID)
 	}
-	
+
 	storyChannel := make(chan StoryIteration, 100) // Buffer size of 100 can be adjusted
 	go func() {
 		defer close(storyChannel)
