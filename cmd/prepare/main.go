@@ -213,10 +213,11 @@ func createOutputTables(db *sql.DB, contextLength int, outputTable string) {
 
 
 func getStories(db *sql.DB, modulo, congruent int) ([]int, error) {
-	query := "SELECT DISTINCT story_id FROM sentences ORDER BY story_id"
+	query := "SELECT DISTINCT id FROM stories ORDER BY id"
 	if modulo > 0 {
-		query = fmt.Sprintf("SELECT DISTINCT story_id FROM sentences WHERE story_id %% %d = %d ORDER BY story_id", modulo, congruent)
+		query = fmt.Sprintf("SELECT DISTINCT id FROM stories WHERE id %% %d = %d ORDER BY id", modulo, congruent)
 	}
+	log.Printf("Getting stories by running %s", query)
 
 	rows, err := db.Query(query)
 	if err != nil {
@@ -237,10 +238,14 @@ func getStories(db *sql.DB, modulo, congruent int) ([]int, error) {
 }
 
 func processStory(inputDB, outputDB *sql.DB, storyID, contextLength int, outputTable string) (error) {
+	log.Printf("Processing story %d with context length %d into %s", storyID, contextLength, outputTable)
+		
 	words, err := getWordsForStory(inputDB, storyID)
 	if err != nil {
 		return fmt.Errorf("Error getting words for story %d: %v", storyID, err)
 	}
+
+	log.Printf("Found %d words in story %d", len(words), storyID)
 
 	startOfText, err := getPath(inputDB, -1, "<START-OF-TEXT>", sql.NullString{
 		Valid: true,
@@ -263,10 +268,11 @@ func processStory(inputDB, outputDB *sql.DB, storyID, contextLength int, outputT
 	for i := 0; i < contextLength; i++ {
 		buffer = append(buffer, startOfText)
 	}
+	log.Printf("Starting the iteration over those words in story %d", storyID)
 
 	for idx, word := range words {
 		if (idx % 100 == 0) || (idx == len(words)-1) {
-			log.Printf("Words added: %d/%d", idx, len(words))
+			log.Printf("Words added from story %d: %d/%d", storyID, idx, len(words))
 		}
 		if word.Path == "" {
 			// If we can't find the path for a word, then we can't use this
@@ -313,6 +319,7 @@ func getWordsForStory(db *sql.DB, storyID int) ([]WordData, error) {
 		ORDER BY s.sentence_number, w.word_number
 	`
 
+	log.Printf("Getting words for story by running %s", query)
 	rows, err := db.Query(query, storyID)
 	if err != nil {
 		return nil, err
@@ -335,6 +342,9 @@ func getWordsForStory(db *sql.DB, storyID int) ([]WordData, error) {
 		}
 
 		words = append(words, wordData)
+		if len(words) % 100 == 0 {
+			log.Printf("Fetched %d words from story %d", len(words), storyID)
+		}
 	}
 
 	return words, nil
