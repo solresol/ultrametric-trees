@@ -227,13 +227,7 @@ func createOutputTables(db *sql.DB, contextLength int, outputTable string) {
 
 
 func resolvedWordsInStory(db *sql.DB, storyID int) (int, error) {
-	query := `
-		SELECT count(w.resolved_synset)
-		FROM words w
-		JOIN sentences s ON w.sentence_id = s.id
-		WHERE s.story_id = ?
-		ORDER BY s.sentence_number, w.word_number
-	`
+	query := `SELECT count(resolved_synset) FROM words JOIN sentences s ON sentence_id = s.id WHERE s.story_id = ?`
 	var count int
 	err := db.QueryRow(query, storyID).Scan(&count)
 	if err != nil {
