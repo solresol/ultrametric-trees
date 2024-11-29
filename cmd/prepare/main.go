@@ -313,7 +313,10 @@ func processStory(inputDB, outputDB *sql.DB, storyID, contextLength int, outputT
 
 	log.Printf("Found %d words in story %d, of which %d were annotated", len(words), storyID, annotationCount)
 
-	startOfText, err := getPath(inputDB, -1, "<START-OF-TEXT>", sql.NullString{
+	// Fake up a word ID for text position markers
+	startOfTextMarker := - (storyID * 2)
+	endOfTextMarker := - (storyID * 2) - 1
+	startOfText, err := getPath(inputDB, startOfTextMarker, "<START-OF-TEXT>", sql.NullString{
 		Valid: true,
 		String: "(punctuation.other)",
 	})
@@ -322,7 +325,7 @@ func processStory(inputDB, outputDB *sql.DB, storyID, contextLength int, outputT
 	}
 	// fmt.Printf("Start of text = %s\n", startOfText.Path)
 
-	endOfText, err := getPath(inputDB, -1, "<END-OF-TEXT>", sql.NullString{
+	endOfText, err := getPath(inputDB, endOfTextMarker, "<END-OF-TEXT>", sql.NullString{
 		Valid: true,
 		String: "(punctuation.other)",
 	})
