@@ -88,7 +88,7 @@ func getPath(db *sql.DB, wordID int, word string, synset sql.NullString) (WordDa
 
 
 // prepare's CLI arguments:
-//  --input-database 
+//  --input-database
 //  --context-length (default 16)
 //  --output-database
 //
@@ -200,7 +200,7 @@ func createOutputTables(db *sql.DB, contextLength int, outputTable string) {
 	if err != nil {
 		log.Fatalf("Error creating index on decodings.word: %v", err)
 	}
-	
+
 	query = fmt.Sprintf("CREATE INDEX IF NOT EXISTS %s_targetword ON %s (targetword)", outputTable, outputTable)
 	_, err = db.Exec(query)
 	if err != nil {
@@ -263,7 +263,7 @@ func processStory(inputDB, outputDB *sql.DB, storyID, contextLength int, outputT
 		return fmt.Errorf("Could not get the <START-OF-TEXT> marker: %v\n", err)
 	}
 	// fmt.Printf("Start of text = %s\n", startOfText.Path)
-	
+
 	endOfText, err := getPath(inputDB, -1, "<END-OF-TEXT>", sql.NullString{
 		Valid: true,
 		String: "(punctuation.other)",
@@ -382,7 +382,7 @@ func insertTrainingData(db *sql.DB, buffer []WordData, contextLength int, output
 		// Something really bad happened
 		return err
 	}
-	
+
 	tx, err := db.Begin()
 	if err != nil {
 		return fmt.Errorf("Error starting transaction: %v", err)
