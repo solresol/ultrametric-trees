@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"log"
 	"strings"
+	"time"
 
 	_ "github.com/mattn/go-sqlite3"
 )
@@ -144,23 +145,32 @@ func main() {
 
 	log.Printf("Getting stories")
 
-	stories, err := getStories(inputConn, *modulo, *congruent)
+	storyChan, err := getStories(inputConn, *modulo, *congruent)
 	if err != nil {
 		log.Fatalf("Error getting stories: %v", err)
 	}
 
-	log.Printf("%d stories to process", len(stories))
+	processedCount := 0
+	startTime := time.Now()
 
-	for idx, storyID := range stories {
-		percentComplete := (100.0 * float64(idx)) / float64(len(stories))
-		log.Printf("Processing story %d: %d/%d = %.2f%% complete", storyID, idx, len(stories), percentComplete)
+	for storyIteration := range storyChan {
+		percentComplete := 100.0 * float64(storyIteration.TotalStories - storyIteration.NumberLeftToCheck) / float64(storyIteration.TotalStories)
+		if storyIteration.StatusOnly {
+			log.Printf("Skipping stories where all words are unresolved. %d stories remaining to examine. %.2f%% complete.", storyIteration.NumberLeftToCheck, percentComplete)
+			continue
+		}
+		storyID := storyIteration.StoryID
+		processedCount++
 		err = processStory(inputConn, outputConn, storyID, *contextLength, *outputTable)
 		if err != nil {
 			log.Fatalf("Could not process story %d: %v", storyID, err)
 		}
+		elapsed := time.Since(startTime)
+		storiesPerSecond := float64(processedCount) / elapsed.Seconds()
+		log.Printf("Processing story %d: (#%d, %.2f stories/sec), %.2f%% complete", storyID, processedCount, storiesPerSecond, percentComplete)
 	}
 
-	fmt.Println("Data preparation completed successfully.")
+	log.Printf("Data preparation completed successfully.")
 }
 
 func createOutputTables(db *sql.DB, contextLength int, outputTable string) {
@@ -216,7 +226,32 @@ func createOutputTables(db *sql.DB, contextLength int, outputTable string) {
 }
 
 
-func getStories(db *sql.DB, modulo, congruent int) ([]int, error) {
+func resolvedWordsInStory(db *sql.DB, storyID int) (int, error) {
+	query := `
+		SELECT count(w.resolved_synset)
+		FROM words w
+		JOIN sentences s ON w.sentence_id = s.id
+		WHERE s.story_id = ?
+		ORDER BY s.sentence_number, w.word_number
+	`
+	var count int
+	err := db.QueryRow(query, storyID).Scan(&count)
+	if err != nil {
+		return 0, fmt.Errorf("error counting resolved words in story %d: %v", storyID, err)
+	}
+	return count, nil
+}
+
+
+type StoryIteration struct {
+	StoryID int
+	NumberLeftToCheck int
+	TotalStories int
+	StatusOnly bool
+}
+
+func getStories(db *sql.DB, modulo, congruent int) (<-chan StoryIteration, error) {
+
 	query := "SELECT DISTINCT id FROM stories ORDER BY id"
 	if modulo > 0 {
 		query = fmt.Sprintf("SELECT DISTINCT id FROM stories WHERE id %% %d = %d ORDER BY id", modulo, congruent)
@@ -227,18 +262,42 @@ func getStories(db *sql.DB, modulo, congruent int) ([]int, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
 
-	var stories []int
+	var storyIDs []int
+	defer rows.Close()
+	
 	for rows.Next() {
 		var storyID int
 		if err := rows.Scan(&storyID); err != nil {
-			return nil, err
+			return nil, fmt.Errorf("Could not scan storyID: %v", err)
 		}
-		stories = append(stories, storyID)
+		storyIDs = append(storyIDs, storyID)
 	}
+	
+	storyChannel := make(chan StoryIteration, 100) // Buffer size of 100 can be adjusted
+	go func() {
+		sinceLastMessage := 0
+		for idx, storyID := range storyIDs {
+			resolvedCount, err := resolvedWordsInStory(db, storyID)
+			if err != nil {
+				log.Printf("Error counting words in story ID: %v", err)
+				// Assume it's zero, which will mean we will skip it
+			}
+			var storyIteration StoryIteration
+			storyIteration.StoryID = storyID
+			storyIteration.NumberLeftToCheck = len(storyIDs) - idx
+			storyIteration.StatusOnly = resolvedCount == 0
+			storyIteration.TotalStories = len(storyIDs)
+			if !storyIteration.StatusOnly || sinceLastMessage > 1000 {
+				storyChannel <- storyIteration
+				sinceLastMessage = 0
+			} else {
+				sinceLastMessage++
+			}
+		}
+	}()
 
-	return stories, nil
+	return storyChannel, nil
 }
 
 func processStory(inputDB, outputDB *sql.DB, storyID, contextLength int, outputTable string) (error) {
@@ -276,7 +335,7 @@ func processStory(inputDB, outputDB *sql.DB, storyID, contextLength int, outputT
 	for i := 0; i < contextLength; i++ {
 		buffer = append(buffer, startOfText)
 	}
-	log.Printf("Starting the iteration over those words in story %d", storyID)
+	// log.Printf("Starting the iteration over those words in story %d", storyID)
 
 	trainingDataSize := 0
 	for idx, word := range words {
@@ -297,7 +356,7 @@ func processStory(inputDB, outputDB *sql.DB, storyID, contextLength int, outputT
 		}
 
 		buffer = append(buffer, word)
-		log.Printf("Added %s (%d) path=%s. Buffer length %d", word.Word, word.WordID, word.Path, len(buffer))
+		// log.Printf("Added %s (%d) path=%s. Buffer length %d", word.Word, word.WordID, word.Path, len(buffer))
 		// This isn't quite right either. We might want to train on texts
 		// that are shorter than the contextLength (the beginning of a story
 		// for example).
@@ -338,7 +397,7 @@ func getWordsForStory(db *sql.DB, storyID int) ([]WordData, int, error) {
 		ORDER BY s.sentence_number, w.word_number
 	`
 
-	log.Printf("Getting words for story %d", storyID)
+	// log.Printf("Getting words for story %d", storyID)
 	rows, err := db.Query(query, storyID)
 	if err != nil {
 		return nil, 0, err
