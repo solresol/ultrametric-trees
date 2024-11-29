@@ -283,7 +283,7 @@ func getStories(db *sql.DB, modulo, congruent int) (<-chan StoryIteration, error
 			storyIteration.NumberLeftToCheck = len(storyIDs) - idx - 1
 			storyIteration.StatusOnly = resolvedCount == 0
 			storyIteration.TotalStories = len(storyIDs)
-			if !storyIteration.StatusOnly || sinceLastMessage > 1000 {
+			if !storyIteration.StatusOnly || sinceLastMessage > 1000 || (idx == len(storyIDs)-1) {
 				storyChannel <- storyIteration
 				sinceLastMessage = 0
 			} else {
