@@ -270,6 +270,7 @@ func getStories(db *sql.DB, modulo, congruent int) (<-chan StoryIteration, error
 	
 	storyChannel := make(chan StoryIteration, 100) // Buffer size of 100 can be adjusted
 	go func() {
+		defer close(storyChannel)
 		sinceLastMessage := 0
 		for idx, storyID := range storyIDs {
 			resolvedCount, err := resolvedWordsInStory(db, storyID)
