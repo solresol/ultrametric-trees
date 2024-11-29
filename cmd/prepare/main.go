@@ -44,9 +44,12 @@ func isEnumeratedPseudoSynset(synset string) bool {
 }
 
 func getPath(db *sql.DB, wordID int, word string, synset sql.NullString) (WordData, error) {
+	// log.Printf("The synset for word %s (%d) is %v", word, wordID, synset)
 	if !synset.Valid || synset.String == "" {
+		// log.Printf("Cannot make a useful path for %s (%d) because synset is empty", word, wordID)
 		return WordData{WordID: wordID, Word: word, Synset: synset, Path: ""}, nil
 	}
+	//log.Printf("The word %s (%d) does have a valid synset", word, wordID)
 
 	fields := strings.Split(synset.String, ".")
 	if len(fields) == 3 {
@@ -149,7 +152,8 @@ func main() {
 	log.Printf("%d stories to process", len(stories))
 
 	for idx, storyID := range stories {
-		log.Printf("Processing story %d: %d/%d", storyID, idx, len(stories))
+		percentComplete := (100.0 * float64(idx)) / float64(len(stories))
+		log.Printf("Processing story %d: %d/%d = %.2f%% complete", storyID, idx, len(stories), percentComplete)
 		err = processStory(inputConn, outputConn, storyID, *contextLength, *outputTable)
 		if err != nil {
 			log.Fatalf("Could not process story %d: %v", storyID, err)
@@ -239,13 +243,17 @@ func getStories(db *sql.DB, modulo, congruent int) ([]int, error) {
 
 func processStory(inputDB, outputDB *sql.DB, storyID, contextLength int, outputTable string) (error) {
 	log.Printf("Processing story %d with context length %d into %s", storyID, contextLength, outputTable)
-		
-	words, err := getWordsForStory(inputDB, storyID)
+	words, annotationCount, err := getWordsForStory(inputDB, storyID)
 	if err != nil {
 		return fmt.Errorf("Error getting words for story %d: %v", storyID, err)
 	}
 
-	log.Printf("Found %d words in story %d", len(words), storyID)
+	if annotationCount == 0 {
+		log.Printf("Story %d has no annotated words in it. Skipping.", storyID)
+		return nil
+	}
+
+	log.Printf("Found %d words in story %d, of which %d were annotated", len(words), storyID, annotationCount)
 
 	startOfText, err := getPath(inputDB, -1, "<START-OF-TEXT>", sql.NullString{
 		Valid: true,
@@ -270,11 +278,14 @@ func processStory(inputDB, outputDB *sql.DB, storyID, contextLength int, outputT
 	}
 	log.Printf("Starting the iteration over those words in story %d", storyID)
 
+	trainingDataSize := 0
 	for idx, word := range words {
 		if (idx % 100 == 0) || (idx == len(words)-1) {
-			log.Printf("Words added from story %d: %d/%d", storyID, idx, len(words))
+			//log.Printf("Adding words for story %d. Progress: %d/%d", storyID, idx+1, len(words))
 		}
 		if word.Path == "" {
+			//log.Printf("SKIPPING  %s (%d) path=%s. Buffer length %d", word.Word, word.WordID, word.Path, len(buffer))
+
 			// If we can't find the path for a word, then we can't use this
 			// as a prediction token, nor can we use it for predicting anything.
 			// We'll have to refill the buffer from scratch
@@ -286,7 +297,7 @@ func processStory(inputDB, outputDB *sql.DB, storyID, contextLength int, outputT
 		}
 
 		buffer = append(buffer, word)
-
+		log.Printf("Added %s (%d) path=%s. Buffer length %d", word.Word, word.WordID, word.Path, len(buffer))
 		// This isn't quite right either. We might want to train on texts
 		// that are shorter than the contextLength (the beginning of a story
 		// for example).
@@ -297,20 +308,28 @@ func processStory(inputDB, outputDB *sql.DB, storyID, contextLength int, outputT
 					word.WordID, word.Word, err)
 			}
 			buffer = buffer[1:] // Remove the oldest word
+			trainingDataSize += 1
 		}
 	}
 
+	//log.Printf("Appending endOfText marker. Buffer length is %d", len(buffer))
 	buffer = append(buffer, endOfText)
-	err = insertTrainingData(outputDB, buffer, contextLength, outputTable)
-	if err != nil {
-		return fmt.Errorf("Could not insert the end of text marker on story %d: %v", storyID, err)
+	if len(buffer) == contextLength+1 {
+		err = insertTrainingData(outputDB, buffer, contextLength, outputTable)
+		if err != nil {
+			return fmt.Errorf("Could not insert the end of text marker on story %d: %v", storyID, err)
+		}
+		trainingDataSize += 1
 	}
-	// Clear the buffer at the end of the story
+	// Clear the buffer at the end of the story. Not sure if this is necessary, since buffer
+	// is a local variable.
 	buffer = buffer[:0]
+
+	log.Printf("Finished processing story %d, touched %d training records", storyID, trainingDataSize)
 	return nil
 }
 
-func getWordsForStory(db *sql.DB, storyID int) ([]WordData, error) {
+func getWordsForStory(db *sql.DB, storyID int) ([]WordData, int, error) {
 	query := `
 		SELECT w.id, w.word, w.resolved_synset
 		FROM words w
@@ -319,20 +338,21 @@ func getWordsForStory(db *sql.DB, storyID int) ([]WordData, error) {
 		ORDER BY s.sentence_number, w.word_number
 	`
 
-	log.Printf("Getting words for story by running %s", query)
+	log.Printf("Getting words for story %d", storyID)
 	rows, err := db.Query(query, storyID)
 	if err != nil {
-		return nil, err
+		return nil, 0, err
 	}
 	defer rows.Close()
 
+	annotationCount := 0
 	var words []WordData
 	for rows.Next() {
 		var wordID int
 		var word string
 		var synset sql.NullString
 		if err := rows.Scan(&wordID, &word, &synset); err != nil {
-			return nil, err
+			return nil, annotationCount, err
 		}
 
 		wordData, err := getPath(db, wordID, word, synset)
@@ -340,14 +360,13 @@ func getWordsForStory(db *sql.DB, storyID int) ([]WordData, error) {
 			log.Printf("Error getting path for word %s (ID: %d): %v", word, wordID, err)
 			continue
 		}
-
-		words = append(words, wordData)
-		if len(words) % 100 == 0 {
-			log.Printf("Fetched %d words from story %d", len(words), storyID)
+		if wordData.Path != "" {
+			annotationCount += 1
 		}
+		words = append(words, wordData)
 	}
 
-	return words, nil
+	return words, annotationCount, nil
 }
 
 func insertTrainingData(db *sql.DB, buffer []WordData, contextLength int, outputTable string) (error) {
