@@ -332,7 +332,8 @@ func processStory(inputDB, outputDB *sql.DB, storyID, contextLength int, outputT
 	}
 	// log.Printf("Starting the iteration over those words in story %d", storyID)
 
-	trainingDataSize := 0
+	overlapSize := 0
+	newlyAddedData := 0
 	for idx, word := range words {
 		if (idx % 100 == 0) || (idx == len(words)-1) {
 			//log.Printf("Adding words for story %d. Progress: %d/%d", storyID, idx+1, len(words))
@@ -356,30 +357,38 @@ func processStory(inputDB, outputDB *sql.DB, storyID, contextLength int, outputT
 		// that are shorter than the contextLength (the beginning of a story
 		// for example).
 		if len(buffer) == contextLength+1 {
-			err = insertTrainingData(outputDB, buffer, contextLength, outputTable)
+			existsAlready, err := insertTrainingData(outputDB, buffer, contextLength, outputTable)
 			if err != nil {
 				return fmt.Errorf("Could not insert training data for word ID = %d (%s): %v",
 					word.WordID, word.Word, err)
 			}
 			buffer = buffer[1:] // Remove the oldest word
-			trainingDataSize += 1
+			if existsAlready {
+				overlapSize++
+			} else {
+				newlyAddedData++
+			}
 		}
 	}
 
 	//log.Printf("Appending endOfText marker. Buffer length is %d", len(buffer))
 	buffer = append(buffer, endOfText)
 	if len(buffer) == contextLength+1 {
-		err = insertTrainingData(outputDB, buffer, contextLength, outputTable)
+		existsAlready, err := insertTrainingData(outputDB, buffer, contextLength, outputTable)
 		if err != nil {
 			return fmt.Errorf("Could not insert the end of text marker on story %d: %v", storyID, err)
 		}
-		trainingDataSize += 1
+		if existsAlready {
+			overlapSize++
+		} else {
+			newlyAddedData++
+		}
 	}
 	// Clear the buffer at the end of the story. Not sure if this is necessary, since buffer
 	// is a local variable.
 	buffer = buffer[:0]
 
-	log.Printf("Finished processing story %d, touched %d training records", storyID, trainingDataSize)
+	log.Printf("Finished processing story %d, added %d training records, %d records already present", storyID, newlyAddedData, overlapSize)
 	return nil
 }
 
@@ -423,7 +432,7 @@ func getWordsForStory(db *sql.DB, storyID int) ([]WordData, int, error) {
 	return words, annotationCount, nil
 }
 
-func insertTrainingData(db *sql.DB, buffer []WordData, contextLength int, outputTable string) (error) {
+func insertTrainingData(db *sql.DB, buffer []WordData, contextLength int, outputTable string) (bool, error) {
 	query := fmt.Sprintf("select 1 from %s where targetword_id = %d limit 1", outputTable, buffer[contextLength].WordID)
 	rows, err := db.Query(query)
 	rows.Close()
@@ -431,15 +440,15 @@ func insertTrainingData(db *sql.DB, buffer []WordData, contextLength int, output
 		// Then we'll need to add it
 	} else if err == nil {
 		// It already exists. Don't need to insert anything
-		return nil
+		return true,nil
 	} else {
 		// Something really bad happened
-		return err
+		return false,err
 	}
 
 	tx, err := db.Begin()
 	if err != nil {
-		return fmt.Errorf("Error starting transaction: %v", err)
+		return false,fmt.Errorf("Error starting transaction: %v", err)
 	}
 	defer tx.Rollback()
 
@@ -462,7 +471,7 @@ func insertTrainingData(db *sql.DB, buffer []WordData, contextLength int, output
 	args[contextLength+1] = buffer[contextLength].WordID
 	_, err = tx.Exec(query, args...)
 	if err != nil {
-		return fmt.Errorf("Error inserting training data: %v", err)
+		return false,fmt.Errorf("Error inserting training data: %v", err)
 	}
 
 	// Update decodings table
@@ -473,13 +482,13 @@ func insertTrainingData(db *sql.DB, buffer []WordData, contextLength int, output
 			ON CONFLICT(path, word) DO UPDATE SET usage_count = usage_count + 1
 		`, word.Path, word.Word)
 		if err != nil {
-			return fmt.Errorf("Error updating decodings: %v", err)
+			return false,fmt.Errorf("Error updating decodings: %v", err)
 		}
 	}
 
 	err = tx.Commit()
 	if err != nil {
-		return fmt.Errorf("Error committing transaction: %v", err)
+		return false,fmt.Errorf("Error committing transaction: %v", err)
 	}
-	return nil
+	return false,nil
 }
