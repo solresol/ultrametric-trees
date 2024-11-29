@@ -152,6 +152,8 @@ func main() {
 
 	processedCount := 0
 	startTime := time.Now()
+	newRecordCount := 0
+	overlapRecordCount := 0
 
 	for storyIteration := range storyChan {
 		percentComplete := 100.0 * float64(storyIteration.TotalStories - storyIteration.NumberLeftToCheck) / float64(storyIteration.TotalStories)
@@ -161,16 +163,18 @@ func main() {
 		}
 		storyID := storyIteration.StoryID
 		processedCount++
-		err = processStory(inputConn, outputConn, storyID, *contextLength, *outputTable)
+		newlyAdded, newOverlaps, err := processStory(inputConn, outputConn, storyID, *contextLength, *outputTable)
+		newRecordCount += newlyAdded
+		overlapRecordCount += newOverlaps
 		if err != nil {
 			log.Fatalf("Could not process story %d: %v", storyID, err)
 		}
 		elapsed := time.Since(startTime)
 		storiesPerSecond := float64(processedCount) / elapsed.Seconds()
-		log.Printf("Progress (#%d, %.2f stories/sec), %.2f%% complete", processedCount, storiesPerSecond, percentComplete)
+		log.Printf("Progress (#%d, %.2f stories/sec), %d new records, %d overlapping records, %.2f%% complete", processedCount, storiesPerSecond, newRecordCount, overlapRecordCount, percentComplete)
 	}
 
-	log.Printf("Data preparation completed successfully.")
+	log.Printf("Data preparation completed successfully. %d new training records, %d existing training records untouched", newRecordCount, overlapRecordCount)
 }
 
 func createOutputTables(db *sql.DB, contextLength int, outputTable string) {
@@ -359,7 +363,7 @@ func processStory(inputDB, outputDB *sql.DB, storyID, contextLength int, outputT
 		if len(buffer) == contextLength+1 {
 			existsAlready, err := insertTrainingData(outputDB, buffer, contextLength, outputTable)
 			if err != nil {
-				return fmt.Errorf("Could not insert training data for word ID = %d (%s): %v",
+				return newlyAddedData, overlapSize, fmt.Errorf("Could not insert training data for word ID = %d (%s): %v",
 					word.WordID, word.Word, err)
 			}
 			buffer = buffer[1:] // Remove the oldest word
@@ -376,7 +380,7 @@ func processStory(inputDB, outputDB *sql.DB, storyID, contextLength int, outputT
 	if len(buffer) == contextLength+1 {
 		existsAlready, err := insertTrainingData(outputDB, buffer, contextLength, outputTable)
 		if err != nil {
-			return fmt.Errorf("Could not insert the end of text marker on story %d: %v", storyID, err)
+			return newlyAddedData, overlapSize, fmt.Errorf("Could not insert the end of text marker on story %d: %v", storyID, err)
 		}
 		if existsAlready {
 			overlapSize++
@@ -389,7 +393,7 @@ func processStory(inputDB, outputDB *sql.DB, storyID, contextLength int, outputT
 	buffer = buffer[:0]
 
 	log.Printf("Finished processing story %d, added %d training records, %d records already present", storyID, newlyAddedData, overlapSize)
-	return nil
+	return newlyAddedData, overlapSize, nil
 }
 
 func getWordsForStory(db *sql.DB, storyID int) ([]WordData, int, error) {
