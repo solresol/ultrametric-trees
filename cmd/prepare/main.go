@@ -280,7 +280,7 @@ func getStories(db *sql.DB, modulo, congruent int) (<-chan StoryIteration, error
 			}
 			var storyIteration StoryIteration
 			storyIteration.StoryID = storyID
-			storyIteration.NumberLeftToCheck = len(storyIDs) - idx
+			storyIteration.NumberLeftToCheck = len(storyIDs) - idx - 1
 			storyIteration.StatusOnly = resolvedCount == 0
 			storyIteration.TotalStories = len(storyIDs)
 			if !storyIteration.StatusOnly || sinceLastMessage > 1000 {
