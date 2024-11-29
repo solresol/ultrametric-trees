@@ -167,7 +167,7 @@ func main() {
 		}
 		elapsed := time.Since(startTime)
 		storiesPerSecond := float64(processedCount) / elapsed.Seconds()
-		log.Printf("Processing story %d: (#%d, %.2f stories/sec), %.2f%% complete", storyID, processedCount, storiesPerSecond, percentComplete)
+		log.Printf("Progress (#%d, %.2f stories/sec), %.2f%% complete", processedCount, storiesPerSecond, percentComplete)
 	}
 
 	log.Printf("Data preparation completed successfully.")
