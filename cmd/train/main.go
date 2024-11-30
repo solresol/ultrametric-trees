@@ -107,7 +107,7 @@ func initializeFirstLeaf(db *sql.DB,
 		return fmt.Errorf("Error updating nodes table: %v", err)
 	}
 
-	fmt.Printf("Updated node %d with exemplar %s, loss %f, and data quantity %d\n", exemplar.RootNodeID, bestExemplar.String(), bestLoss, len(rows))
+	log.Printf("Updated node %d with exemplar %s, loss %f, and data quantity %d\n", exemplar.RootNodeID, bestExemplar.String(), bestLoss, len(rows))
 
 	return nil
 }
@@ -331,13 +331,12 @@ func createGoodSplit(db *sql.DB,
 		fmt.Errorf("Error committing transaction: %v", err)
 	}
 
-	fmt.Printf("Step completed successfully:\n")
-	fmt.Printf("Context K: %d\n", bestContextK)
-	fmt.Printf("Best Circle: %s\n", bestCircle.String())
-	fmt.Printf("Total Loss: %f\n", bestTotalLoss)
-	fmt.Printf("Inner Node ID: %d, Exemplar: %s, Size: %d\n", innerNodeID, bestInsideExemplar.String(), len(bestInsideRows))
-	fmt.Printf("Outer Node ID: %d, Exemplar: %s, Size: %d\n", outerNodeID, bestOutsideExemplar.String(), len(bestOutsideRows))
-
+	log.Printf("Step completed successfully: Context K=%d BestCircle=%s TotalLoss=%f [InnerNodeID=%d Exemplar=%s Size=%d] [OuterNodeID=%d Exemplar=%s Size=%d]",
+		bestContextK,
+		bestCircle.String(),
+		bestTotalLoss,
+		innerNodeID, bestInsideExemplar.String(), len(bestInsideRows),
+		outerNodeID, bestOutsideExemplar.String(), len(bestOutsideRows))
 	return bestTotalLoss, nil
 }
 
@@ -415,7 +414,7 @@ func main() {
 	solarMonitor := flag.String("solar-monitor", "", "Hostname of the Enphase system to query to see if there is spare power available for training")
 
 	flag.Parse()
-	log.Printf("Running for at least %v...\n", *minRunTime)
+	log.Printf("Planning to run for at least %v...\n", *minRunTime)
 	timer := time.NewTimer(*minRunTime)
 
 	if *database == "" {
@@ -466,21 +465,21 @@ func main() {
 				log.Fatalf("Could not find the most urgent node to work ing: %v", err)
 			}
 			if nextNode == exemplar.NoNodeID {
-				fmt.Printf("Training is complete")
+				log.Printf("Training is complete")
 				return
 			}
-			fmt.Printf("Will split node %d because its current cost is %f\n", int(nextNode), currentCost)
+			log.Printf("Will split node %d because its current cost is %f\n", int(nextNode), currentCost)
 			query := fmt.Sprintf("update %s set being_analysed = true where id = %d", *nodesTable, nextNode)
 			_, err = db.Exec(query)
 			if err != nil {
 				log.Fatalf("Could not set being_analysed = true on row %d of %s", int(nextNode), *nodesTable)
 			}
-			
+
 			newLoss, err := createGoodSplit(db, *nodesTable, nextNode, *trainingDataTable, *nodeBucketTable, *splitCountTry, *numCirclesPerSplit, *exemplarGuesses, *costGuesses, *contextLength, rng)
 			if err != nil {
 				log.Fatalf("Could not split %s on node %d using training data in %s and node bucket information in %s (splitCountTry=%d, contextLength=%d because: %v", *nodesTable, int(nextNode), *trainingDataTable, *nodeBucketTable, *splitCountTry, *contextLength, err)
 			}
-			
+
 			query = fmt.Sprintf("update %s set being_analysed = false where id = %d", *nodesTable, int(nextNode))
 			_, err = db.Exec(query)
 			if err != nil {
@@ -488,7 +487,7 @@ func main() {
 			}
 			improvement := currentCost - newLoss
 			elapsed := time.Since(splitStartTime)
-			fmt.Printf("Total loss reduced by %f in %v\n", improvement, elapsed)
+			log.Printf("Total loss reduced by %f in %v\n", improvement, elapsed)
 			// Perhaps I should check whether the improvement was positive
 			// On the other hand, the a negative improvement is just an illusion caused
 			// by inaccurate loss estimation, I think.
