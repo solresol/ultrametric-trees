@@ -1,0 +1,27 @@
+# -*- mode: dockerfile -*-
+# Build stage
+FROM golang:1.22 AS builder
+
+WORKDIR /app
+
+# Copy source code
+COPY . .
+
+# Download dependencies
+RUN go mod download
+
+# Build the application
+RUN make bin/train
+
+# Runtime stage
+FROM ubuntu:22.04
+
+WORKDIR /app
+
+# Copy binary from builder
+COPY --from=builder /app/bin/train /app/bin/train
+
+# Create directory for mounting volume
+RUN mkdir -p /ultratree/language-model
+
+ENTRYPOINT ["/app/bin/train"]

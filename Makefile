@@ -1,4 +1,4 @@
-.PHONY: build run test clean dbclean
+.PHONY: build run test clean dbclean training-docker-image
 
 build: bin/prepare bin/train bin/report bin/showtree
 	echo All built
@@ -17,6 +17,12 @@ bin/showtree: cmd/showtree/main.go
 
 slm-w2.sqlite: bin/prepare /tinystories/wordnetify-tinystories/w2.sqlite
 	./bin/prepare --input-database /tinystories/wordnetify-tinystories/w2.sqlite --output-database slm-w2.sqlite
+
+tiny.sqlite: bin/prepare /tinystories/wordnetify-tinystories/TinyStories.sqlite
+	./bin/prepare --input-database /tinystories/wordnetify-tinystories/TinyStories.sqlite --output-database /ultratree/language-model/tiny.sqlite
+
+training-docker-image: bin/train Dockerfile.train
+	docker build -t ultratree-train -f Dockerfile.train .
 
 test:
 	go test ./...

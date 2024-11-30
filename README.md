@@ -14,16 +14,20 @@ everything you need.
 
 # Running
 
+## Prepare
+
 If your database after running the wordnetify programs is `w2.sqlite` and you want to create
 `slm-w2.sqlite`, run:
 
 `./bin/prepare --input-database w2.sqlite --output-database slm-w2.sqlite`
 
+## Train
+
 This creates a dataframe (in a table called `training_data`).
 
 Then run `./bin/train --database slm-w2.sqlite`
 
-## Advanced options
+### Advanced options
 
 If you want to train two models at once:
 
@@ -32,6 +36,35 @@ If you want to train two models at once:
 `./bin/train --database slm-w2.sqlite --node-bucket model2mapping --node-table model2 --seed 2`
 
 (If you don't specify the seed, you'll end up with the same data in each model.)
+
+### Renewable energy
+
+At the moment, the only supported energy system is the Enphase/Envoy domestic solar system. If you
+have one of these, then you can supply the argument `--solar-monitor` followed by its IP address
+or hostname. If this is specified, then it will wake up every 5 minutes and confirm whether or
+not production is exceeding household consumption --- only if there is spare solar power will it
+attempt to do any training.
+
+### Docker
+
+To create the image:
+
+`docker build -t ultratree-train -f Dockerfile.train .`
+
+or
+
+`make training-docker-image`
+
+To run it, identify which directory you want to have as the directory
+for the training model:
+
+```
+docker run -v /where/you/want/db/dir:/ultratree/language-model \
+  ultratree-train \
+  --database /ultratree/language-model/tiny.sqlite \
+```
+
+Optionally adding `--solar-monitor` to the end if relevant
 
 
 # To-do
@@ -73,3 +106,5 @@ If you want to train two models at once:
   some kind, I think
 
 - Maybe some kind of (interactive?) tool where you can look at a predicted word, and see the reasoning
+
+- Instructions on how to run the docker image in a kubernetes volume, or other common hosting platforms
