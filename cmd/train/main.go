@@ -350,7 +350,7 @@ type SolarData struct {
 }
 
 type ProductionData struct {
-	WNow float64 `json:"wNow,string"`
+	WNow float64 `json:"wNow,float64"`
 }
 
 func getNetCurrentSolarProduction(solarMonitor string) (float64, error) {
@@ -376,6 +376,8 @@ func getNetCurrentSolarProduction(solarMonitor string) (float64, error) {
 	if err != nil {
 		return 0, fmt.Errorf("failed to read response body: %v", err)
 	}
+
+	//log.Printf("%s", string(body))
 
 	// Parse JSON response
 	var data SolarData
@@ -411,7 +413,7 @@ func main() {
 	numCirclesPerSplit := flag.Int("num-circles-per-split", 10, "Number of circles to try per split")
 	nodeSplittingThreshold := flag.Int("node-splitting-threshold", 1, "If a node is smaller than this, don't try to split it")
 	minRunTime := flag.Duration("time", time.Hour * 1000000, "Minimum amount of time to run the program (e.g., 10s, 5m)")
-	solarMonitor := flag.String("solar-monitor", "", "Hostname of the Enphase system to query to see if there is spare power available for training")
+	solarMonitor := flag.String("solar-monitor", "", "Hostname of the Enphase/Envoy system to query to see if there is spare power available for training")
 
 	flag.Parse()
 	log.Printf("Planning to run for at least %v...\n", *minRunTime)
@@ -440,19 +442,26 @@ func main() {
 		}
 	}
 
+	nextSolarCheck := time.Now()
+
 	for {
 		if *solarMonitor != "" {
-			netProduction, err := getNetCurrentSolarProduction(*solarMonitor)
-			if err != nil {
-				// Just assume that we have power. This is a false
-				// assumption, but it's better than all the alternatives
-			} else {
-				if (netProduction < 0.0) {
-					log.Printf("Net solar production = %.2f watts. Not enough power to run computations. Sleeping for 5 minutes", netProduction)
-					time.Sleep(5 * time.Minute)
-					continue
+			if nextSolarCheck.Before(time.Now()) {
+				netProduction, err := getNetCurrentSolarProduction(*solarMonitor)
+				if err != nil {
+					log.Printf("Could not get solar production: %v", err)
+					// Just assume that we have power. This is a false
+					// assumption, but it's better than all the alternatives
+					nextSolarCheck = time.Now().Add(1 * time.Minute)
+				} else {
+					if (netProduction < 0.0) {
+						log.Printf("Net solar production = %.2f watts. Not enough power to run computations. Sleeping for 5 minutes", netProduction)
+						time.Sleep(5 * time.Minute)
+						continue
+					}
+					log.Printf("Net solar production = %.2f watts, let's use it!", netProduction)
+					nextSolarCheck = time.Now().Add(5 * time.Minute)
 				}
-				log.Printf("Net solar production = %.2f watts, let's use it!", netProduction)
 			}
 		}
 		select {
