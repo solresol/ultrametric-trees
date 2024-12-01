@@ -66,19 +66,47 @@ docker run -v /where/you/want/db/dir:/ultratree/language-model \
 
 Optionally adding `--solar-monitor` to the end if relevant
 
+## Validation
+
+One of the weird things about the tree-based model is that we can
+replay the state of the model at any time in the past, so we don't
+need to capture validation loss at the end of each epoch. If we 
+discover we have overfitted, we can rewind to a previous state
+easily enough.
+
+You will need:
+
+- a trained model (which can be still training as you run this)
+
+- a validation dataset. This is in the same format as the training data, 
+  you can create it with `bin/prepare` as you otherwise would.
+  
+- somewhere to put the validated database
+  
+```
+bin/validation --model tiny.sqlite \
+    --validation-database validation-data.sqlite
+	--output-database inference.sqlite
+```
+
+
 
 # To-do
+
+- It seems that the validation data always ends up outside every node in the trained model. Why?
+
+- The validation program should report the validation loss (and perhaps put it in the output database)
+
+- The validation program (and maybe the inference library?) can only cope with a context length of 16
 
 - We'll need a program that can annotate a sentence into senses. Converting the wordnetify python programs
   into golang would mostly solve that, but it would be good to have options like "manual sense annotation"
   and "sense annotation using ollama".
   
-- A decoder program
+- A decoder program (it's partly done in `pkg/validation/validation.go`). Although maybe this is an `infer` program
 
-- Stats for the training and validation loss. One of the weird things about the tree-based model is that
-  we can replay the state of the model at any time in the past, so we don't need to capture validation
-  loss at the end of each epoch. Some sort of dashboard that shows the current state of training would be
-  good too.
+- Stats for the training and validation loss. Some sort of dashboard
+  that shows the current state of training would be good too.
   
 - Be able to resume training
 
