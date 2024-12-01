@@ -18,7 +18,7 @@ gha_enabled: True
 # Example:
 #
 # description: sweepai/sweep is a python project. The main api endpoints are in sweepai/api.py. Write code that adheres to PEP8.
-description: 'solresol/ultrametric-trees is a golang program. Write code that adheres to golang conventions. The package name is  github.com/solresol/ultrametric-trees'
+description: 'solresol/ultrametric-trees is a golang program. Write code that adheres to golang conventions. The package name is  github.com/solresol/ultrametric-trees. Generally use log.Printf instead of fmt.Printf. github build rules should use @v4 (instead of the obsoleted @v2 or @v3).'
 
 # This sets whether to create pull requests as drafts. If this is set to True, then all pull requests will be created as drafts and GitHub Actions will not be triggered.
 draft: False
