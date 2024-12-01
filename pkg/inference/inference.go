@@ -1,0 +1,115 @@
+// pkg/inference/inference.go
+package inference
+
+import (
+	"database/sql"
+	"fmt"
+	"github.com/solresol/ultrametric-trees/pkg/node"
+)
+
+// InferenceResult represents the output of inference on a single context
+type InferenceResult struct {
+	ContextID     int
+	PredictedPath string
+	Confidence    float64
+}
+
+// ModelInference handles the inference process for a trained model
+type ModelInference struct {
+	db         *sql.DB
+	nodesTable string
+	nodes      []node.Node
+}
+
+// NewModelInference creates a new inference engine from a trained model
+func NewModelInference(db *sql.DB, nodesTable string) (*ModelInference, error) {
+	nodes, err := node.FetchNodes(db, nodesTable)
+	if err != nil {
+		return nil, fmt.Errorf("failed to fetch nodes: %v", err)
+	}
+
+	return &ModelInference{
+		db:         db,
+		nodesTable: nodesTable,
+		nodes:      nodes,
+	}, nil
+}
+
+// InferSingle performs inference on a single context
+func (m *ModelInference) InferSingle(context []string) (*InferenceResult, error) {
+	currentNode := m.findRootNode()
+	if currentNode == nil {
+		return nil, fmt.Errorf("could not find root node")
+	}
+
+	// Traverse the tree based on context
+	for currentNode.HasChildren {
+		nextNode, err := m.traverseNode(currentNode, context)
+		if err != nil {
+			return nil, err
+		}
+		currentNode = nextNode
+	}
+
+	// Return the prediction from the leaf node
+	return &InferenceResult{
+		PredictedPath: currentNode.ExemplarValue.String,
+		Confidence:    1.0 - currentNode.Loss.Float64,
+	}, nil
+}
+
+func (m *ModelInference) findRootNode() *node.Node {
+	for i := range m.nodes {
+		if m.nodes[i].ID == 1 { // Root node ID is 1
+			return &m.nodes[i]
+		}
+	}
+	return nil
+}
+
+func (m *ModelInference) traverseNode(current *node.Node, context []string) (*node.Node, error) {
+	if !current.ContextK.Valid {
+		return nil, fmt.Errorf("invalid context index in node %d", current.ID)
+	}
+
+	contextIdx := int(current.ContextK.Int64 - 1) // Convert from 1-based to 0-based
+	if contextIdx >= len(context) {
+		return nil, fmt.Errorf("context index %d out of range", contextIdx)
+	}
+
+	// Check if the context matches the inner region
+	contextValue := context[contextIdx]
+	if matches, err := m.matchesInnerRegion(contextValue, current.InnerRegionPrefix.String); err != nil {
+		return nil, err
+	} else if matches {
+		return m.findNodeByID(int(current.InnerRegionNodeID.Int64))
+	}
+
+	// If not in inner region, go to outer region
+	return m.findNodeByID(int(current.OuterRegionNodeID.Int64))
+}
+
+func (m *ModelInference) findNodeByID(id int) (*node.Node, error) {
+	for i := range m.nodes {
+		if m.nodes[i].ID == id {
+			return &m.nodes[i], nil
+		}
+	}
+	return nil, fmt.Errorf("node %d not found", id)
+}
+
+func (m *ModelInference) matchesInnerRegion(contextValue, regionPrefix string) (bool, error) {
+	// Query the database to check if the context value matches the region prefix
+	var count int
+	err := m.db.QueryRow(`
+		SELECT COUNT(*) FROM decodings 
+		WHERE path = ? AND word = ?
+	`, regionPrefix, contextValue).Scan(&count)
+	
+	if err != nil {
+		return false, fmt.Errorf("error checking region match: %v", err)
+	}
+	
+	return count > 0, nil
+}
+

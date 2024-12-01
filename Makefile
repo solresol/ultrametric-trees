@@ -1,19 +1,22 @@
 .PHONY: build run test clean dbclean training-docker-image
 
-build: bin/prepare bin/train bin/report bin/showtree
+build: bin/prepare bin/train bin/report bin/showtree bin/infer
 	echo All built
-
-bin/train: cmd/train/main.go pkg/exemplar/exemplar.go
-	go build -o bin/train cmd/train/main.go
 
 bin/prepare: cmd/prepare/main.go
 	go build -o bin/prepare cmd/prepare/main.go
+
+bin/train: cmd/train/main.go pkg/exemplar/exemplar.go
+	go build -o bin/train cmd/train/main.go
 
 bin/report: cmd/report/main.go
 	go build -o bin/report cmd/report/main.go
 
 bin/showtree: cmd/showtree/main.go
 	go build -o bin/showtree cmd/showtree/main.go
+
+bin/infer: cmd/infer/main.go pkg/inference/inference.go
+	go build -o bin/infer cmd/infer/main.go
 
 slm-w2.sqlite: bin/prepare /tinystories/wordnetify-tinystories/w2.sqlite
 	./bin/prepare --input-database /tinystories/wordnetify-tinystories/w2.sqlite --output-database slm-w2.sqlite
