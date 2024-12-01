@@ -4,6 +4,7 @@ package inference
 import (
 	"database/sql"
 	"fmt"
+	"log"
 	"github.com/solresol/ultrametric-trees/pkg/node"
 )
 
@@ -11,7 +12,7 @@ import (
 type InferenceResult struct {
 	ContextID     int
 	PredictedPath string
-	Confidence    float64
+	Loss    float64
 }
 
 // ModelInference handles the inference process for a trained model
@@ -37,6 +38,11 @@ func NewModelInference(db *sql.DB, nodesTable string) (*ModelInference, error) {
 
 // InferSingle performs inference on a single context
 func (m *ModelInference) InferSingle(context []string) (*InferenceResult, error) {
+	contextString, err := m.ShowContext(context)
+	if err != nil {
+		return nil, err
+	}
+	log.Printf("INFERING %s", contextString)
 	currentNode := m.findRootNode()
 	if currentNode == nil {
 		return nil, fmt.Errorf("could not find root node")
@@ -50,11 +56,16 @@ func (m *ModelInference) InferSingle(context []string) (*InferenceResult, error)
 		}
 		currentNode = nextNode
 	}
+	decodedWord, err := m.DecodePath(currentNode.ExemplarValue.String)
+	if err != nil {
+		return nil, fmt.Errorf("Could not decode %s: %v", currentNode.ExemplarValue.String)
+	}
+	log.Printf("Conclusion: %s = %s", currentNode.ExemplarValue.String, decodedWord)
 
 	// Return the prediction from the leaf node
 	return &InferenceResult{
 		PredictedPath: currentNode.ExemplarValue.String,
-		Confidence:    1.0 - currentNode.Loss.Float64,
+		Loss:    1.0 - currentNode.Loss.Float64,
 	}, nil
 }
 
@@ -71,21 +82,24 @@ func (m *ModelInference) traverseNode(current *node.Node, context []string) (*no
 	if !current.ContextK.Valid {
 		return nil, fmt.Errorf("invalid context index in node %d", current.ID)
 	}
-
 	contextIdx := int(current.ContextK.Int64 - 1) // Convert from 1-based to 0-based
 	if contextIdx >= len(context) {
 		return nil, fmt.Errorf("context index %d out of range", contextIdx)
 	}
-
 	// Check if the context matches the inner region
 	contextValue := context[contextIdx]
+	decodedValue, _ := m.DecodePath(contextValue)
+	log.Printf("Node %d looks at context K = %d. It is asking whether `%s' (%s) is in %s", current.ID, current.ContextK.Int64, decodedValue, contextValue, current.InnerRegionPrefix.String)
+
 	if matches, err := m.matchesInnerRegion(contextValue, current.InnerRegionPrefix.String); err != nil {
 		return nil, err
 	} else if matches {
+		log.Printf("It is inside that, so we will go to %d", current.InnerRegionNodeID.Int64)
 		return m.findNodeByID(int(current.InnerRegionNodeID.Int64))
 	}
 
 	// If not in inner region, go to outer region
+	log.Printf("It is outside that, so we will go to %d", current.OuterRegionNodeID.Int64)
 	return m.findNodeByID(int(current.OuterRegionNodeID.Int64))
 }
 
@@ -97,6 +111,45 @@ func (m *ModelInference) findNodeByID(id int) (*node.Node, error) {
 	}
 	return nil, fmt.Errorf("node %d not found", id)
 }
+
+
+// DecodePath looks up a synset path in the decodings table and returns the most common word
+func (m *ModelInference) DecodePath(path string) (string, error) {
+	var word string
+	var count int
+	err := m.db.QueryRow(`
+		SELECT word, COUNT(*) as count 
+		FROM decodings 
+		WHERE path = ? 
+		GROUP BY word 
+		ORDER BY count DESC 
+		LIMIT 1
+	`, path).Scan(&word, &count)
+
+	if err == sql.ErrNoRows {
+		return "", fmt.Errorf("no word found for path: %s", path)
+	}
+	if err != nil {
+		return "", fmt.Errorf("error decoding path: %v", err)
+	}
+
+	return word, nil
+}
+
+// ShowContext takes a context array and prints each element decoded to its word form
+func (m *ModelInference) ShowContext(context []string) (string, error) {
+	s := ""
+	fmt.Println("Context:")
+	for _, path := range context {
+		word, err := m.DecodePath(path)
+		if err != nil {
+			word = fmt.Sprintf("<unknown:%s>", path)
+		}
+		s = fmt.Sprintf("%s %s", word, s)
+	}
+	return s, nil
+}
+
 
 func (m *ModelInference) matchesInnerRegion(contextValue, regionPrefix string) (bool, error) {
 	// Query the database to check if the context value matches the region prefix

@@ -16,9 +16,9 @@ func main() {
 	modelPath := flag.String("model", "", "Path to the trained model SQLite file")
 	nodesTable := flag.String("nodes-table", "nodes", "Name of the nodes table")
 	validationDBPath := flag.String("validation-database", "", "Path to the validation database")
-	validationTable := flag.String("validation-data-table", "", "Name of the validation data table")
+	validationTable := flag.String("validation-data-table", "training_data", "Name of the validation data table")
 	outputDBPath := flag.String("output-database", "", "Path to the output database")
-	outputTable := flag.String("output-table", "", "Name of the output table")
+	outputTable := flag.String("output-table", "inferences", "Name of the output table")
 	flag.Parse()
 
 	if *modelPath == "" || *validationDBPath == "" || *outputDBPath == "" {
@@ -71,7 +71,7 @@ func createOutputTable(db *sql.DB, tableName string) error {
 			id INTEGER PRIMARY KEY,
 			input_id INTEGER,
 			predicted_path TEXT,
-			confidence REAL,
+			loss REAL,
 			when_predicted TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 		)
 	`, tableName)
@@ -81,6 +81,7 @@ func createOutputTable(db *sql.DB, tableName string) error {
 }
 
 func processValidationData(validationDB, outputDB *sql.DB, engine *inference.ModelInference, validationTable, outputTable string) error {
+	log.Printf("Running SELECT id, %s FROM %s", getContextColumns(16), validationTable)
 	// Query to get validation data
 	query := fmt.Sprintf(`
 		SELECT id, %s
@@ -123,9 +124,9 @@ func processValidationData(validationDB, outputDB *sql.DB, engine *inference.Mod
 
 		// Save result
 		_, err = outputDB.Exec(fmt.Sprintf(`
-			INSERT INTO %s (input_id, predicted_path, confidence)
+			INSERT INTO %s (input_id, predicted_path, loss)
 			VALUES (?, ?, ?)
-		`, outputTable), id, result.PredictedPath, result.Confidence)
+		`, outputTable), id, result.PredictedPath, result.Loss)
 		if err != nil {
 			return fmt.Errorf("error saving result: %v", err)
 		}
