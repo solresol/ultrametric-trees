@@ -93,7 +93,9 @@ bin/validation --model tiny.sqlite \
 
 # To-do
 
-- It seems that the validation data always ends up outside every node in the trained model. Why?
+- Let's store the loss in the database somewhere
+
+- Let's make sure we can do inference using a model from any moment in history
 
 - The validation program should report the validation loss (and perhaps put it in the output database)
 
@@ -104,6 +106,8 @@ bin/validation --model tiny.sqlite \
   and "sense annotation using ollama".
   
 - A decoder program (it's partly done in `pkg/validation/validation.go`). Although maybe this is an `infer` program
+
+- A path (1.3.4.1.72) should be its own type rather than a string. Not having separate types has caused a few bugs. We have half-done this with exemplar.SynsetPath
 
 - Stats for the training and validation loss. Some sort of dashboard
   that shows the current state of training would be good too.
