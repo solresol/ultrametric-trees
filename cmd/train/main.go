@@ -12,6 +12,8 @@ import (
 	"time"
 
 	"github.com/solresol/ultrametric-trees/pkg/exemplar"
+	"github.com/solresol/ultrametric-trees/pkg/node"	
+	"github.com/solresol/ultrametric-trees/pkg/decode"	
 	_ "github.com/mattn/go-sqlite3"
 )
 
@@ -234,6 +236,10 @@ func createGoodSplit(db *sql.DB,
 			randomSynset := possibleSynsets[rng.Intn(len(possibleSynsets))]
 			inside, outside := exemplar.SplitByFilter(sourceRows, targetRows, randomSynset)
 
+			if len(inside) == 0 || len(outside) == 0 {
+				// Wasn't a good choice
+				continue
+			}
 			insideExemplar, insideLoss, err := exemplar.FindBestExemplar(inside, exemplarGuesses, costGuesses, rng)
 			if err != nil {
 				log.Printf("Error finding inside exemplar: %v", err)
@@ -331,12 +337,17 @@ func createGoodSplit(db *sql.DB,
 		fmt.Errorf("Error committing transaction: %v", err)
 	}
 
-	log.Printf("Step completed successfully: Context K=%d BestCircle=%s TotalLoss=%f [InnerNodeID=%d Exemplar=%s Size=%d] [OuterNodeID=%d Exemplar=%s Size=%d]",
+	decodedCircle, err := decode.DecodePath(db, bestCircle.String())
+	decodedInnerExemplar, err := decode.DecodePath(db, bestInsideExemplar.String())
+	decodedOuterExemplar, err := decode.DecodePath(db, bestOutsideExemplar.String())
+	
+	log.Printf("Step completed successfully: Context K=%d BestCircle=%s (%s) TotalLoss=%f [InnerNodeID=%d Exemplar=%s (%s) Size=%d] [OuterNodeID=%d Exemplar=%s (%s) Size=%d]",
 		bestContextK,
 		bestCircle.String(),
+		decodedCircle,
 		bestTotalLoss,
-		innerNodeID, bestInsideExemplar.String(), len(bestInsideRows),
-		outerNodeID, bestOutsideExemplar.String(), len(bestOutsideRows))
+		innerNodeID, bestInsideExemplar.String(), decodedInnerExemplar,  len(bestInsideRows),
+		outerNodeID, bestOutsideExemplar.String(), decodedOuterExemplar, len(bestOutsideRows))
 	return bestTotalLoss, nil
 }
 
@@ -412,13 +423,13 @@ func main() {
 	contextLength := flag.Int("context-length", 16, "Context length")
 	numCirclesPerSplit := flag.Int("num-circles-per-split", 10, "Number of circles to try per split")
 	nodeSplittingThreshold := flag.Int("node-splitting-threshold", 1, "If a node is smaller than this, don't try to split it")
-	minRunTime := flag.Duration("time", time.Hour * 1000000, "Minimum amount of time to run the program (e.g., 10s, 5m)")
+	stopAfter := flag.Int("stop-after", -1, "Stop after this number of splits")
 	solarMonitor := flag.String("solar-monitor", "", "Hostname of the Enphase/Envoy system to query to see if there is spare power available for training")
 
 	flag.Parse()
-	log.Printf("Planning to run for at least %v...\n", *minRunTime)
-	timer := time.NewTimer(*minRunTime)
 
+	splitsDone := 0
+	
 	if *database == "" {
 		log.Fatal("--database is required")
 	}
@@ -445,6 +456,9 @@ func main() {
 	nextSolarCheck := time.Now()
 
 	for {
+		if *stopAfter > 0 && splitsDone >= *stopAfter {
+			break
+		}
 		if *solarMonitor != "" {
 			if nextSolarCheck.Before(time.Now()) {
 				netProduction, err := getNetCurrentSolarProduction(*solarMonitor)
@@ -464,43 +478,48 @@ func main() {
 				}
 			}
 		}
-		select {
-		case <- timer.C:
-			break;
-		default:
-			splitStartTime := time.Now()
-			nextNode, currentCost, err := exemplar.MostUrgentToImprove(db, *nodesTable, *nodeSplittingThreshold)
-			if err != nil {
-				log.Fatalf("Could not find the most urgent node to work ing: %v", err)
-			}
-			if nextNode == exemplar.NoNodeID {
-				log.Printf("Training is complete")
-				return
-			}
-			log.Printf("Will split node %d because its current cost is %f\n", int(nextNode), currentCost)
-			query := fmt.Sprintf("update %s set being_analysed = true where id = %d", *nodesTable, nextNode)
-			_, err = db.Exec(query)
-			if err != nil {
-				log.Fatalf("Could not set being_analysed = true on row %d of %s", int(nextNode), *nodesTable)
-			}
-
-			newLoss, err := createGoodSplit(db, *nodesTable, nextNode, *trainingDataTable, *nodeBucketTable, *splitCountTry, *numCirclesPerSplit, *exemplarGuesses, *costGuesses, *contextLength, rng)
-			if err != nil {
-				log.Fatalf("Could not split %s on node %d using training data in %s and node bucket information in %s (splitCountTry=%d, contextLength=%d because: %v", *nodesTable, int(nextNode), *trainingDataTable, *nodeBucketTable, *splitCountTry, *contextLength, err)
-			}
-
-			query = fmt.Sprintf("update %s set being_analysed = false where id = %d", *nodesTable, int(nextNode))
-			_, err = db.Exec(query)
-			if err != nil {
-				log.Fatalf("Could not set being_analysed = false on row %d of %s", int(nextNode), *nodesTable)
-			}
-			improvement := currentCost - newLoss
-			elapsed := time.Since(splitStartTime)
-			log.Printf("Total loss reduced by %f in %v\n", improvement, elapsed)
-			// Perhaps I should check whether the improvement was positive
-			// On the other hand, the a negative improvement is just an illusion caused
-			// by inaccurate loss estimation, I think.
-			// Maybe I should also monitor validation loss
+		splitStartTime := time.Now()
+		nextNodeID, currentCost, err := exemplar.MostUrgentToImprove(db, *nodesTable, *nodeSplittingThreshold)
+		if err != nil {
+			log.Fatalf("Could not find the most urgent node to work ing: %v", err)
 		}
+		if nextNodeID == exemplar.NoNodeID {
+			log.Printf("Training is complete")
+			return
+		}
+		nextNode, err := node.FetchNodeByID(db, *nodesTable, int(nextNodeID))
+		if err != nil {
+			log.Fatalf("Could not fetch the node %d: %v", nextNodeID, err)
+		}
+		ancestryDisplay, err := decode.NodeAncestry(db, nextNode)
+		if err != nil {
+			log.Printf("Could not get ancestry for node: %v", err)
+			// But carry on anyway, it's not terrible
+		}
+		log.Printf("Because its current cost is %f I will split node ID %d. Ancestry: (. %s .)\n", currentCost, int(nextNodeID), ancestryDisplay)
+		query := fmt.Sprintf("update %s set being_analysed = true where id = %d", *nodesTable, nextNodeID)
+		_, err = db.Exec(query)
+		if err != nil {
+			log.Fatalf("Could not set being_analysed = true on row %d of %s", int(nextNodeID), *nodesTable)
+		}
+		
+		newLoss, err := createGoodSplit(db, *nodesTable, nextNodeID, *trainingDataTable, *nodeBucketTable, *splitCountTry, *numCirclesPerSplit, *exemplarGuesses, *costGuesses, *contextLength, rng)
+		if err != nil {
+			log.Fatalf("Could not split %s on node %d using training data in %s and node bucket information in %s (splitCountTry=%d, contextLength=%d because: %v", *nodesTable, int(nextNodeID), *trainingDataTable, *nodeBucketTable, *splitCountTry, *contextLength, err)
+		}
+		
+		query = fmt.Sprintf("update %s set being_analysed = false where id = %d", *nodesTable, int(nextNodeID))
+		_, err = db.Exec(query)
+		if err != nil {
+			log.Fatalf("Could not set being_analysed = false on row %d of %s", int(nextNodeID), *nodesTable)
+		}
+		improvement := currentCost - newLoss
+		elapsed := time.Since(splitStartTime)
+		splitsDone++
+		log.Printf("Split %d: total loss reduced by %f in %v\n", splitsDone, improvement, elapsed)
+		// Perhaps I should check whether the improvement was positive
+		// On the other hand, the a negative improvement is just an illusion caused
+		// by inaccurate loss estimation, I think.
+		// Maybe I should also monitor validation loss
 	}
 }

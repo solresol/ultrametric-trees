@@ -66,6 +66,7 @@ func displayTree(db *sql.DB,nodes []node.Node) (error) {
 	
 }
 
+// This almost exactly duplicates decode.DecodePath
 func getWordFromPath(db *sql.DB, path string) (bool, string, error) {
 	var w string
 	var c int

@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log"
 	"github.com/solresol/ultrametric-trees/pkg/node"
+	"github.com/solresol/ultrametric-trees/pkg/decode"	
 )
 
 // InferenceResult represents the output of inference on a single context
@@ -38,7 +39,7 @@ func NewModelInference(db *sql.DB, nodesTable string) (*ModelInference, error) {
 
 // InferSingle performs inference on a single context
 func (m *ModelInference) InferSingle(context []string) (*InferenceResult, error) {
-	contextString, err := m.ShowContext(context)
+	contextString, err := decode.ShowContext(m.db, context)
 	if err != nil {
 		return nil, err
 	}
@@ -56,7 +57,7 @@ func (m *ModelInference) InferSingle(context []string) (*InferenceResult, error)
 		}
 		currentNode = nextNode
 	}
-	decodedWord, err := m.DecodePath(currentNode.ExemplarValue.String)
+	decodedWord, err := decode.DecodePath(m.db, currentNode.ExemplarValue.String)
 	if err != nil {
 		return nil, fmt.Errorf("Could not decode %s: %v", currentNode.ExemplarValue.String)
 	}
@@ -88,7 +89,7 @@ func (m *ModelInference) traverseNode(current *node.Node, context []string) (*no
 	}
 	// Check if the context matches the inner region
 	contextValue := context[contextIdx]
-	decodedValue, _ := m.DecodePath(contextValue)
+	decodedValue, _ := decode.DecodePath(m.db, contextValue)
 	log.Printf("Node %d looks at context K = %d. It is asking whether `%s' (%s) is in %s", current.ID, current.ContextK.Int64, decodedValue, contextValue, current.InnerRegionPrefix.String)
 
 	if matches, err := m.matchesInnerRegion(contextValue, current.InnerRegionPrefix.String); err != nil {
@@ -113,42 +114,7 @@ func (m *ModelInference) findNodeByID(id int) (*node.Node, error) {
 }
 
 
-// DecodePath looks up a synset path in the decodings table and returns the most common word
-func (m *ModelInference) DecodePath(path string) (string, error) {
-	var word string
-	var count int
-	err := m.db.QueryRow(`
-		SELECT word, COUNT(*) as count 
-		FROM decodings 
-		WHERE path = ? 
-		GROUP BY word 
-		ORDER BY count DESC 
-		LIMIT 1
-	`, path).Scan(&word, &count)
 
-	if err == sql.ErrNoRows {
-		return "", fmt.Errorf("no word found for path: %s", path)
-	}
-	if err != nil {
-		return "", fmt.Errorf("error decoding path: %v", err)
-	}
-
-	return word, nil
-}
-
-// ShowContext takes a context array and prints each element decoded to its word form
-func (m *ModelInference) ShowContext(context []string) (string, error) {
-	s := ""
-	fmt.Println("Context:")
-	for _, path := range context {
-		word, err := m.DecodePath(path)
-		if err != nil {
-			word = fmt.Sprintf("<unknown:%s>", path)
-		}
-		s = fmt.Sprintf("%s %s", word, s)
-	}
-	return s, nil
-}
 
 
 func (m *ModelInference) matchesInnerRegion(contextValue, regionPrefix string) (bool, error) {
