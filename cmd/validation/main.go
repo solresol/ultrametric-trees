@@ -10,6 +10,8 @@ import (
 
 	_ "github.com/mattn/go-sqlite3"
 	"github.com/solresol/ultrametric-trees/pkg/inference"
+	"github.com/solresol/ultrametric-trees/pkg/exemplar"
+	"github.com/solresol/ultrametric-trees/pkg/decode"
 )
 
 func main() {
@@ -19,6 +21,8 @@ func main() {
 	validationTable := flag.String("validation-data-table", "training_data", "Name of the validation data table")
 	outputDBPath := flag.String("output-database", "", "Path to the output database")
 	outputTable := flag.String("output-table", "inferences", "Name of the output table")
+	limit := flag.Int64("limit", -1, "Stop after this many inferences")
+	contextLength := flag.Int64("context-length", 16, "Length of the context window")
 	flag.Parse()
 
 	if *modelPath == "" || *validationDBPath == "" || *outputDBPath == "" {
@@ -59,7 +63,7 @@ func main() {
 	}
 
 	// Process validation data
-	err = processValidationData(validationDB, outputDB, inferenceEngine, *validationTable, *outputTable)
+	err = processValidationData(modelDB, validationDB, outputDB, inferenceEngine, *validationTable, *outputTable, int(*limit), int(*contextLength))
 	if err != nil {
 		log.Fatalf("Error processing validation data: %v", err)
 	}
@@ -69,8 +73,10 @@ func createOutputTable(db *sql.DB, tableName string) error {
 	query := fmt.Sprintf(`
 		CREATE TABLE IF NOT EXISTS %s (
 			id INTEGER PRIMARY KEY,
+			final_node_id integer,
 			input_id INTEGER,
 			predicted_path TEXT,
+			correct_path TEXT,
 			loss REAL,
 			when_predicted TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 		)
@@ -80,25 +86,32 @@ func createOutputTable(db *sql.DB, tableName string) error {
 	return err
 }
 
-func processValidationData(validationDB, outputDB *sql.DB, engine *inference.ModelInference, validationTable, outputTable string) error {
+func processValidationData(trainingDB, validationDB, outputDB *sql.DB, engine *inference.ModelInference, validationTable, outputTable string, limit int, contextLength int) error {
 	log.Printf("Running SELECT id, %s FROM %s", getContextColumns(16), validationTable)
 	// Query to get validation data
 	query := fmt.Sprintf(`
-		SELECT id, %s
+		SELECT id, %s, targetword
 		FROM %s
-	`, getContextColumns(16), validationTable) // Assuming max context length of 16
+		ORDER BY id
+	`, getContextColumns(contextLength), validationTable) // Assuming max context length of 16
 
+	if limit > 0 {
+		query = fmt.Sprintf("%s LIMIT %d", query, limit)
+	}
 	rows, err := validationDB.Query(query)
 	if err != nil {
 		return fmt.Errorf("error querying validation data: %v", err)
 	}
 	defer rows.Close()
+	totalLoss := 0.0
 
 	for rows.Next() {
 		var id int
-		contexts := make([]sql.NullString, 16)
-		scanArgs := make([]interface{}, 17)
+		var correctAnswer string
+		contexts := make([]sql.NullString, contextLength)
+		scanArgs := make([]interface{}, contextLength + 2)
 		scanArgs[0] = &id
+		scanArgs[17] = &correctAnswer
 		for i := range contexts {
 			scanArgs[i+1] = &contexts[i]
 		}
@@ -108,12 +121,18 @@ func processValidationData(validationDB, outputDB *sql.DB, engine *inference.Mod
 		}
 
 		// Convert contexts to string slice
-		contextStrings := make([]string, 0, 16)
+		contextStrings := make([]string, 0, contextLength)
 		for _, ctx := range contexts {
 			if ctx.Valid {
 				contextStrings = append(contextStrings, ctx.String)
 			}
 		}
+		contextString, err := decode.ShowContext(validationDB, contextStrings)
+		if err != nil {
+			return err
+		}
+		log.Printf("INFERING %d: %s", id, contextString)
+
 
 		// Perform inference
 		result, err := engine.InferSingle(contextStrings)
@@ -123,15 +142,30 @@ func processValidationData(validationDB, outputDB *sql.DB, engine *inference.Mod
 		}
 
 		// Save result
+		predictionSynset, err := exemplar.ParseSynsetpath(result.PredictedPath)
+		if err != nil {
+			log.Printf("Could not turn the prediction %s into a synsetpath: %v", result.PredictedPath, err)
+			continue
+		}
+		predictionWord, _ := decode.DecodePath(trainingDB, result.PredictedPath)
+		correctAnswerSynset, err := exemplar.ParseSynsetpath(correctAnswer)
+		if err != nil {
+			log.Printf("Could not turn the answer %s into a synsetpath: %v", correctAnswer, err)
+			continue
+		}
+		answerWord, _ := decode.DecodePath(trainingDB, correctAnswer)
+		loss := exemplar.CalculateCost(predictionSynset, correctAnswerSynset)
+		log.Printf("Prediction for %d was %s (%s); the correct answer was %s (%s). Loss was %f", id, result.PredictedPath, predictionWord, correctAnswer, answerWord, loss)
 		_, err = outputDB.Exec(fmt.Sprintf(`
-			INSERT INTO %s (input_id, predicted_path, loss)
-			VALUES (?, ?, ?)
-		`, outputTable), id, result.PredictedPath, result.Loss)
+			INSERT INTO %s (input_id, final_node_id, predicted_path, correct_path, loss)
+			VALUES (?, ?, ?, ?, ?)
+		`, outputTable), id, result.FinalNodeID, result.PredictedPath, correctAnswer, loss)
 		if err != nil {
 			return fmt.Errorf("error saving result: %v", err)
 		}
+		totalLoss += loss
 	}
-
+	log.Printf("Total loss: %f", totalLoss)
 	return nil
 }
 
