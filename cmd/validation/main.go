@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"log"
 	"strings"
+	"time"
 
 	_ "github.com/mattn/go-sqlite3"
 	"github.com/solresol/ultrametric-trees/pkg/inference"
@@ -23,6 +24,7 @@ func main() {
 	outputTable := flag.String("output-table", "inferences", "Name of the output table")
 	limit := flag.Int64("limit", -1, "Stop after this many inferences")
 	contextLength := flag.Int64("context-length", 16, "Length of the context window")
+	timeFilterString := flag.String("model-cutoff-time", "9999-12-31 23:59:59", "Only use training nodes that are older than the given time (format: 2006-01-02 15:05:07)")
 	flag.Parse()
 
 	if *modelPath == "" || *validationDBPath == "" || *outputDBPath == "" {
@@ -36,8 +38,13 @@ func main() {
 	}
 	defer modelDB.Close()
 
+	timeFilter, err := time.Parse("2006-01-02 15:04:05", *timeFilterString)
+	if err != nil {
+		log.Fatalf("Error parsing timestamp: %v", err)
+	}
+
 	// Initialize inference engine
-	inferenceEngine, err := inference.NewModelInference(modelDB, *nodesTable)
+	inferenceEngine, err := inference.NewModelInference(modelDB, *nodesTable, timeFilter)
 	if err != nil {
 		log.Fatalf("Error initializing inference engine: %v", err)
 	}
