@@ -15,6 +15,8 @@ import (
 type InferenceResult struct {
 	FinalNodeID int
 	PredictedPath string
+	Depth int
+	InRegion int
 }
 
 // ModelInference handles the inference process for a trained model
@@ -36,6 +38,10 @@ func NewModelInference(db *sql.DB, nodesTable string, timeFilter time.Time) (*Mo
 		nodesTable: nodesTable,
 		nodes:      nodes,
 	}, nil
+}
+
+func (m *ModelInference) Size() (int) {
+	return len(m.nodes)
 }
 
 // InferSingle performs inference on a single context
@@ -68,6 +74,8 @@ func (m *ModelInference) InferSingle(context []string) (*InferenceResult, error)
 	return &InferenceResult{
 		FinalNodeID: currentNode.ID,
 		PredictedPath: currentNode.ExemplarValue.String,
+		Depth: depth,
+		InRegion: matches,
 		// Loss:    1.0 - currentNode.Loss.Float64,
 	}, nil
 }
