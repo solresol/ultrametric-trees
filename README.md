@@ -89,17 +89,19 @@ bin/validation --model tiny.sqlite \
 	--output-database inference.sqlite
 ```
 
+### Scheduled
+
+Put `cronscript.sh` into a crontab to run once per day. It assumes a lot
+of paths, so maybe this needs to be dockerized too.
+
+For example, it expects ~/ultratree-results to exist and be a git repo
+that it can use to store results in.
 
 
 # To-do
 
-- Let's store the loss in the database somewhere
-
-- Let's make sure we can do inference using a model from any moment in history
-
-- The validation program should report the validation loss (and perhaps put it in the output database)
-
-- The validation program (and maybe the inference library?) can only cope with a context length of 16
+- `cronscript.sh` should also trigger programs to graph the results, and make sure that README.md shows
+  the graphs inline.
 
 - We'll need a program that can annotate a sentence into senses. Converting the wordnetify python programs
   into golang would mostly solve that, but it would be good to have options like "manual sense annotation"
