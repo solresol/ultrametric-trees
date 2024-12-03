@@ -106,6 +106,47 @@ func FetchNodes(db *sql.DB, tableName string) ([]Node, error) {
 	return nodes, nil
 }
 
+
+// I now have three functions: FilterNodes (includeWithChildren=true), FilterNode (includeWithChildren=false)
+// and NodesAsOf. These do almost the same thing and I really need to clean it up. NodesAsOf will take
+// a moment in time and return what the tree structure would have looked like then
+//
+// I think we should be passing around a dictionary keyed on NodeID rather than Node arrays. To-do.
+func FetchNodesAsOf(db *sql.DB, tableName string, timestamp time.Time) ([]Node, error) {
+	rawNodes, err := FetchNodes(db, tableName)
+	var nodes []Node
+	if err != nil {
+		return nodes, err
+	}
+	for _, node := range rawNodes {
+		if node.WhenCreated.After(timestamp) {
+			continue
+		}
+		if !node.WhenChildrenPopulated.Valid {
+			// Then it has non children, but it was created before the timestamp
+			// It's perfect as is
+			nodes = append(nodes, node)
+			continue
+		}
+		if node.WhenChildrenPopulated.Time.Before(timestamp) {
+			// It already had its children before cut-off
+			nodes = append(nodes, node)
+			continue
+		}
+		// It gained children *after* the cut-off. We need to make it
+		// appear as it was then.
+		node.HasChildren = false
+		node.WhenChildrenPopulated.Valid = false
+		node.OuterRegionNodeID.Valid = false
+		node.InnerRegionNodeID.Valid = false
+		node.InnerRegionPrefix.Valid = false
+		node.ContextK.Valid = false
+		nodes = append(nodes, node)
+	}
+	return nodes, nil
+}
+
+// Deprecated: Use FetchNodesAsOf instead
 func FilterNodes(nodes []Node, timestamp time.Time, includeWithChildren bool) []Node {
 	var filtered []Node
 	for _, node := range nodes {
