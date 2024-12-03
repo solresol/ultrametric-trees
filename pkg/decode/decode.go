@@ -33,7 +33,6 @@ func DecodePath(db *sql.DB, path string) (string, error) {
 // ShowContext takes a context array and prints each element decoded to its word form
 func ShowContext(db *sql.DB, context []string) (string, error) {
 	s := ""
-	fmt.Println("Context:")
 	for _, path := range context {
 		word, err := DecodePath(db, path)
 		if err != nil {
