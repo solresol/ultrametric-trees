@@ -1,0 +1,61 @@
+package main
+
+import (
+	"database/sql"
+	"flag"
+	"fmt"
+	"log"
+	"time"
+
+	_ "github.com/mattn/go-sqlite3"
+	"github.com/solresol/ultrametric-trees/pkg/node"
+)
+
+func main() {
+	database := flag.String("database", "", "SQLite database file")
+	tableName := flag.String("tablename", "nodes", "Table name for nodes")
+	timeStr := flag.String("time", "", "Optional timestamp to filter nodes")
+
+	flag.Parse()
+
+	if *database == "" {
+		log.Fatal("The --database argument is required")
+	}
+
+	db, err := sql.Open("sqlite3", *database)
+	if err != nil {
+		log.Fatalf("Error opening database: %v", err)
+	}
+	defer db.Close()
+
+	var nodes []node.Node
+	if *timeStr != "" {
+		timestamp, err := time.Parse(time.RFC3339, *timeStr)
+		if err != nil {
+			log.Fatalf("Invalid time format: %v", err)
+		}
+		nodes, err = node.FetchNodesAsOf(db, *tableName, timestamp)
+	} else {
+		nodes, err = node.FetchNodes(db, *tableName)
+	}
+
+	if err != nil {
+		log.Fatalf("Error fetching nodes: %v", err)
+	}
+
+	for _, n := range nodes {
+		fmt.Printf("ID: %d\n", n.ID)
+		fmt.Printf("ExemplarValue: %v\n", n.ExemplarValue)
+		fmt.Printf("DataQuantity: %v\n", n.DataQuantity)
+		fmt.Printf("Loss: %v\n", n.Loss)
+		fmt.Printf("ContextK: %v\n", n.ContextK)
+		fmt.Printf("InnerRegionPrefix: %v\n", n.InnerRegionPrefix)
+		fmt.Printf("InnerRegionNodeID: %v\n", n.InnerRegionNodeID)
+		fmt.Printf("OuterRegionNodeID: %v\n", n.OuterRegionNodeID)
+		fmt.Printf("WhenCreated: %v\n", n.WhenCreated)
+		fmt.Printf("WhenChildrenPopulated: %v\n", n.WhenChildrenPopulated)
+		fmt.Printf("HasChildren: %v\n", n.HasChildren)
+		fmt.Printf("BeingAnalysed: %v\n", n.BeingAnalysed)
+		fmt.Printf("TableName: %s\n\n", n.TableName)
+	}
+}
