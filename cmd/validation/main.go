@@ -16,6 +16,7 @@ import (
 )
 
 func main() {
+	runDescription := flag.String("run-description", "", "An informative name to describe the validation run")
 	modelPath := flag.String("model", "", "Path to the trained model SQLite file")
 	nodesTable := flag.String("nodes-table", "nodes", "Name of the nodes table")
 	validationDBPath := flag.String("validation-database", "", "Path to the validation database")
@@ -27,8 +28,12 @@ func main() {
 	timeFilterString := flag.String("model-cutoff-time", "9999-12-31 23:59:59", "Only use training nodes that are older than the given time (format: 2006-01-02 15:05:07)")
 	flag.Parse()
 
-	if *modelPath == "" || *validationDBPath == "" || *outputDBPath == "" {
-		log.Fatal("Missing required arguments. Please provide model, validation-database, and output-database paths")
+	if *runDescription == "" || *modelPath == "" || *validationDBPath == "" || *outputDBPath == "" {
+		log.Fatal("Missing required arguments. Please provide run description, model, validation-database, and output-database paths")
+	}
+
+	if strings.ToLower(*outputTable) == "validation_runs" {
+		log.Fatalf("Invalid name for the output table: %s", *outputTable)
 	}
 
 	// Connect to model database
@@ -48,6 +53,7 @@ func main() {
 	if err != nil {
 		log.Fatalf("Error initializing inference engine: %v", err)
 	}
+	modelSize := inferenceEngine.Size()
 
 	// Connect to validation database
 	validationDB, err := sql.Open("sqlite3", *validationDBPath)
@@ -68,18 +74,48 @@ func main() {
 	if err != nil {
 		log.Fatalf("Error creating output table: %v", err)
 	}
+	var validation_run_id int64
+	// Create validation run
+	err = outputDB.QueryRow(`insert into validation_runs (description, model_file, model_table, model_node_count, cutoff_date, context_length, validation_datafile, validation_table, output_table) values (?,?,?,?,?,?,?,?,?) returning validation_run_id`,
+		*runDescription, *modelPath, *nodesTable, modelSize, timeFilter, *contextLength, *validationDBPath, *validationTable, *outputTable).Scan(&validation_run_id)
+	if err != nil {
+		log.Fatalf("Error inserting validation run: %v", err)
+	}
 
 	// Process validation data
-	err = processValidationData(modelDB, validationDB, outputDB, inferenceEngine, *validationTable, *outputTable, int(*limit), int(*contextLength))
+	err = processValidationData(modelDB, validationDB, outputDB, inferenceEngine, *validationTable, *outputTable, int(*limit), int(*contextLength), validation_run_id)
 	if err != nil {
 		log.Fatalf("Error processing validation data: %v", err)
 	}
 }
 
 func createOutputTable(db *sql.DB, tableName string) error {
+	_, err := db.Exec(`
+                create table if not exists validation_runs (
+                   validation_run_id integer primary key,
+                   validation_start_time timestamp default current_timestamp,
+                   validation_end_time timestamp,
+                   description text not null,
+                   model_file text not null,
+                   model_table text not null,
+                   model_node_count integer,
+                   cutoff_date timestamp,
+                   context_length integer,
+                   validation_datafile text not null,
+                   validation_table text not null,
+                   output_table text not null,
+                   number_of_data_points integer,
+                   total_loss float,
+                   average_depth float,
+                   average_in_region_hits float
+                )`)
+	if err != nil {
+		return err
+	}
 	query := fmt.Sprintf(`
 		CREATE TABLE IF NOT EXISTS %s (
 			id INTEGER PRIMARY KEY,
+			validation_run_id integer references validation_runs(validation_run_id),
 			final_node_id integer,
 			input_id INTEGER,
 			predicted_path TEXT,
@@ -89,18 +125,18 @@ func createOutputTable(db *sql.DB, tableName string) error {
 		)
 	`, tableName)
 
-	_, err := db.Exec(query)
+	_, err = db.Exec(query)
 	return err
 }
 
-func processValidationData(trainingDB, validationDB, outputDB *sql.DB, engine *inference.ModelInference, validationTable, outputTable string, limit int, contextLength int) error {
-	log.Printf("Running SELECT id, %s FROM %s", getContextColumns(16), validationTable)
+func processValidationData(trainingDB, validationDB, outputDB *sql.DB, engine *inference.ModelInference, validationTable, outputTable string, limit int, contextLength int, validation_run_id int64) error {
+	log.Printf("Running SELECT id, %s FROM %s", getContextColumns(contextLength), validationTable)
 	// Query to get validation data
 	query := fmt.Sprintf(`
 		SELECT id, %s, targetword
 		FROM %s
 		ORDER BY id
-	`, getContextColumns(contextLength), validationTable) // Assuming max context length of 16
+	`, getContextColumns(contextLength), validationTable) 
 
 	if limit > 0 {
 		query = fmt.Sprintf("%s LIMIT %d", query, limit)
@@ -111,6 +147,9 @@ func processValidationData(trainingDB, validationDB, outputDB *sql.DB, engine *i
 	}
 	defer rows.Close()
 	totalLoss := 0.0
+	totalDepth := 0
+	totalInRegionHits := 0
+	totalDataPoints := 0
 
 	for rows.Next() {
 		var id int
@@ -164,15 +203,27 @@ func processValidationData(trainingDB, validationDB, outputDB *sql.DB, engine *i
 		loss := exemplar.CalculateCost(predictionSynset, correctAnswerSynset)
 		log.Printf("Prediction for %d was %s (%s); the correct answer was %s (%s). Loss was %f", id, result.PredictedPath, predictionWord, correctAnswer, answerWord, loss)
 		_, err = outputDB.Exec(fmt.Sprintf(`
-			INSERT INTO %s (input_id, final_node_id, predicted_path, correct_path, loss)
-			VALUES (?, ?, ?, ?, ?)
-		`, outputTable), id, result.FinalNodeID, result.PredictedPath, correctAnswer, loss)
+			INSERT INTO %s (input_id, validation_run_id, final_node_id, predicted_path, correct_path, loss)
+			VALUES (?, ?, ?, ?, ?, ?)
+		`, outputTable), id, validation_run_id, result.FinalNodeID, result.PredictedPath, correctAnswer, loss)
 		if err != nil {
-			return fmt.Errorf("error saving result: %v", err)
+			return fmt.Errorf("error saving result for %d: %v", id, err)
 		}
 		totalLoss += loss
+		totalDepth += result.Depth
+		totalInRegionHits += result.InRegion
+		totalDataPoints++
 	}
 	log.Printf("Total loss: %f", totalLoss)
+	_, err = outputDB.Exec("update validation_runs set validation_end_time = current_timestamp, number_of_data_points = ?, total_loss = ?, average_depth = ?, average_in_region_hits = ? where validation_run_id = ?",
+		totalDataPoints,
+		totalLoss,
+		float64(totalDepth) / float64(totalDataPoints),
+		float64(totalInRegionHits) / float64(totalDataPoints),
+		validation_run_id)
+	if err != nil {
+		return fmt.Errorf("error closing off validation run %d: %v", validation_run_id, err)
+	}
 	return nil
 }
 
