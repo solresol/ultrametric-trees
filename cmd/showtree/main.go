@@ -26,7 +26,7 @@ func main() {
 	}
 
 	if *dbPath == "" {
-		log.Fatal("Please provide both database path and timestamp")
+		log.Fatal("Please provide the filename of the database")
 	}
 
 	db, err := sql.Open("sqlite3", *dbPath)
