@@ -3,8 +3,8 @@ package node
 import (
 	"database/sql"
 	"fmt"
-	"time"
 	"sort"
+	"time"
 )
 
 // I'd like to change the type of these nodes from int to a nodeID type
@@ -26,7 +26,7 @@ type Node struct {
 }
 
 func FetchNodeByID(db *sql.DB, tableName string, nodeID int) (Node, error) {
-	var n Node	
+	var n Node
 	query := fmt.Sprintf("SELECT * from %s WHERE ID = %d", tableName, nodeID)
 	err := db.QueryRow(query).Scan(
 		&n.ID, &n.ExemplarValue, &n.DataQuantity, &n.Loss, &n.ContextK,
@@ -39,7 +39,6 @@ func FetchNodeByID(db *sql.DB, tableName string, nodeID int) (Node, error) {
 	}
 	return n, nil
 }
-
 
 func FetchParent(db *sql.DB, node Node) (Node, bool, error) {
 	// Open to SQL injection attacks if you can set node.TableName
@@ -75,8 +74,8 @@ func FetchAncestry(db *sql.DB, node Node) ([]Node, error) {
 	}
 	// All done, but it's the wrong way around.
 	var topDownAncestors []Node
-	for i := len(ancestors)-1; i >= 0; i-- {
-		topDownAncestors = append(topDownAncestors,ancestors[i])
+	for i := len(ancestors) - 1; i >= 0; i-- {
+		topDownAncestors = append(topDownAncestors, ancestors[i])
 	}
 	return topDownAncestors, nil
 }
@@ -105,7 +104,6 @@ func FetchNodes(db *sql.DB, tableName string) ([]Node, error) {
 	}
 	return nodes, nil
 }
-
 
 // I now have three functions: FilterNodes (includeWithChildren=true), FilterNode (includeWithChildren=false)
 // and NodesAsOf. These do almost the same thing and I really need to clean it up. NodesAsOf will take

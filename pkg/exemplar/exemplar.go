@@ -10,6 +10,7 @@ import (
 )
 
 type NodeID int
+
 const RootNodeID NodeID = 1
 const NoNodeID NodeID = -1
 
@@ -153,7 +154,6 @@ func SplitByFilter(source, target []DataFrameRow, synsetFilter Synsetpath) ([]Da
 	return inside, outside
 }
 
-
 // The cost of a comparator is related to the amount of path it has in
 // common with the exemplar. The path will be like 1.2.1.3.4.5.7.1 --
 // dot separated numbers (as text). The cost is 2^{- (the count of the
@@ -162,7 +162,6 @@ func SplitByFilter(source, target []DataFrameRow, synsetFilter Synsetpath) ([]Da
 // same for one number, so the loss is 2^{-1} = 0.5.  . If the
 // comparator had been 1.2.3.1.5, then the loss would have been 2^{-3}
 // = 0.125
-
 
 func CalculateCost(exemplar, comparator Synsetpath) float64 {
 	commonPrefixLength := 0
@@ -175,7 +174,6 @@ func CalculateCost(exemplar, comparator Synsetpath) float64 {
 
 	return math.Pow(2, -float64(commonPrefixLength))
 }
-
 
 //  FindBestExemplar iterates [exemplarGuesses] number of times, picking a random
 //  element from that array each time and getting the targetword field
@@ -264,7 +262,6 @@ func UpdateNodeIDs(tx *sql.Tx, table string, rowIDs []int, newNodeID NodeID) err
 	return nil
 }
 
-
 func CompareTableRowCounts(db *sql.DB, table1, table2 string) (bool, error) {
 	query := fmt.Sprintf(`
 		SELECT
@@ -280,7 +277,6 @@ func CompareTableRowCounts(db *sql.DB, table1, table2 string) (bool, error) {
 
 	return count1 == count2, nil
 }
-
 
 func TableExists(db *sql.DB, tableName string) (bool, error) {
 	query := `

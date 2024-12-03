@@ -4,19 +4,19 @@ package inference
 import (
 	"database/sql"
 	"fmt"
+	"github.com/solresol/ultrametric-trees/pkg/decode"
+	"github.com/solresol/ultrametric-trees/pkg/node"
 	"log"
 	"strings"
 	"time"
-	"github.com/solresol/ultrametric-trees/pkg/node"
-	"github.com/solresol/ultrametric-trees/pkg/decode"
 )
 
 // InferenceResult represents the output of inference on a single context
 type InferenceResult struct {
-	FinalNodeID int
+	FinalNodeID   int
 	PredictedPath string
-	Depth int
-	InRegion int
+	Depth         int
+	InRegion      int
 }
 
 // ModelInference handles the inference process for a trained model
@@ -40,7 +40,7 @@ func NewModelInference(db *sql.DB, nodesTable string, timeFilter time.Time) (*Mo
 	}, nil
 }
 
-func (m *ModelInference) Size() (int) {
+func (m *ModelInference) Size() int {
 	return len(m.nodes)
 }
 
@@ -72,10 +72,10 @@ func (m *ModelInference) InferSingle(context []string) (*InferenceResult, error)
 	// log.Printf("Conclusion after %d steps (%d matching): [Node %d] %s = %s", depth, matches, currentNode.ID, currentNode.ExemplarValue.String, decodedWord)
 	// Return the prediction from the leaf node
 	return &InferenceResult{
-		FinalNodeID: currentNode.ID,
+		FinalNodeID:   currentNode.ID,
 		PredictedPath: currentNode.ExemplarValue.String,
-		Depth: depth,
-		InRegion: matches,
+		Depth:         depth,
+		InRegion:      matches,
 		// Loss:    1.0 - currentNode.Loss.Float64,
 	}, nil
 }

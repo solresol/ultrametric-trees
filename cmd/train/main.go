@@ -11,12 +11,11 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/solresol/ultrametric-trees/pkg/exemplar"
-	"github.com/solresol/ultrametric-trees/pkg/node"	
-	"github.com/solresol/ultrametric-trees/pkg/decode"	
 	_ "github.com/mattn/go-sqlite3"
+	"github.com/solresol/ultrametric-trees/pkg/decode"
+	"github.com/solresol/ultrametric-trees/pkg/exemplar"
+	"github.com/solresol/ultrametric-trees/pkg/node"
 )
-
 
 // Initialises a table of node-mapping-to-row with
 // exemplar.RootNodeID.  It then uses a probabilistic estimate to find
@@ -28,7 +27,7 @@ import (
 func initializeFirstLeaf(db *sql.DB,
 	trainingDataTable, nodeBucketTable, nodesTable string,
 	exemplarGuesses, costGuesses int,
-	rng *rand.Rand) (error) {
+	rng *rand.Rand) error {
 
 	// Create a table for the nodes hierarchy
 	query := fmt.Sprintf("create table if not exists %s (id integer primary key autoincrement, exemplar_value text, data_quantity integer, loss float, contextk int, inner_region_prefix text, inner_region_node_id integer, outer_region_node, when_created datetime default current_timestamp, when_children_populated datetime, has_children bool default false, being_analysed bool default false)", nodesTable)
@@ -44,7 +43,6 @@ func initializeFirstLeaf(db *sql.DB,
 	if err != nil {
 		return fmt.Errorf("Cannot create a table of nodes called %s: %v", nodesTable, err)
 	}
-
 
 	// Populate it with the first row. We could do this later, but it's nice to have the half-ready
 	// state visible.
@@ -114,7 +112,6 @@ func initializeFirstLeaf(db *sql.DB,
 	return nil
 }
 
-
 func initialisationRequired(db *sql.DB, trainingDataTable, nodeBucketTable, nodesTable string) (bool, error) {
 	trainingDataExists, err := exemplar.TableExists(db, trainingDataTable)
 	if err != nil {
@@ -163,14 +160,13 @@ func initialisationRequired(db *sql.DB, trainingDataTable, nodeBucketTable, node
 	nodesIsEmpty, err := exemplar.IsTableEmpty(db, nodesTable)
 	if err != nil {
 		return true, fmt.Errorf("Could not detect whether the nodes table %s was empty or not: %v",
-				nodesTable, err)
+			nodesTable, err)
 	}
 	if nodesIsEmpty {
 		return true, nil
 	}
 	return false, nil
 }
-
 
 //  How createGoodSplit works: it iterates [split-count-try]
 //  times... each iteration consists of randomly picking a k for
@@ -340,20 +336,16 @@ func createGoodSplit(db *sql.DB,
 	decodedCircle, err := decode.DecodePath(db, bestCircle.String())
 	decodedInnerExemplar, err := decode.DecodePath(db, bestInsideExemplar.String())
 	decodedOuterExemplar, err := decode.DecodePath(db, bestOutsideExemplar.String())
-	
+
 	log.Printf("Step completed successfully: Context K=%d BestCircle=%s (%s) TotalLoss=%f [InnerNodeID=%d Exemplar=%s (%s) Size=%d] [OuterNodeID=%d Exemplar=%s (%s) Size=%d]",
 		bestContextK,
 		bestCircle.String(),
 		decodedCircle,
 		bestTotalLoss,
-		innerNodeID, bestInsideExemplar.String(), decodedInnerExemplar,  len(bestInsideRows),
+		innerNodeID, bestInsideExemplar.String(), decodedInnerExemplar, len(bestInsideRows),
 		outerNodeID, bestOutsideExemplar.String(), decodedOuterExemplar, len(bestOutsideRows))
 	return bestTotalLoss, nil
 }
-
-
-
-
 
 type SolarData struct {
 	Production  []ProductionData `json:"production"`
@@ -409,8 +401,6 @@ func getNetCurrentSolarProduction(solarMonitor string) (float64, error) {
 	return production - consumption, nil
 }
 
-
-
 func main() {
 	database := flag.String("database", "", "SQLite database file")
 	trainingDataTable := flag.String("training-data", "training_data", "Table name where the training data is stored")
@@ -429,7 +419,7 @@ func main() {
 	flag.Parse()
 
 	splitsDone := 0
-	
+
 	if *database == "" {
 		log.Fatal("--database is required")
 	}
@@ -468,7 +458,7 @@ func main() {
 					// assumption, but it's better than all the alternatives
 					nextSolarCheck = time.Now().Add(1 * time.Minute)
 				} else {
-					if (netProduction < 0.0) {
+					if netProduction < 0.0 {
 						log.Printf("Net solar production = %.2f watts. Not enough power to run computations. Sleeping for 5 minutes", netProduction)
 						time.Sleep(5 * time.Minute)
 						continue
@@ -502,12 +492,12 @@ func main() {
 		if err != nil {
 			log.Fatalf("Could not set being_analysed = true on row %d of %s", int(nextNodeID), *nodesTable)
 		}
-		
+
 		newLoss, err := createGoodSplit(db, *nodesTable, nextNodeID, *trainingDataTable, *nodeBucketTable, *splitCountTry, *numCirclesPerSplit, *exemplarGuesses, *costGuesses, *contextLength, rng)
 		if err != nil {
 			log.Fatalf("Could not split %s on node %d using training data in %s and node bucket information in %s (splitCountTry=%d, contextLength=%d because: %v", *nodesTable, int(nextNodeID), *trainingDataTable, *nodeBucketTable, *splitCountTry, *contextLength, err)
 		}
-		
+
 		query = fmt.Sprintf("update %s set being_analysed = false where id = %d", *nodesTable, int(nextNodeID))
 		_, err = db.Exec(query)
 		if err != nil {

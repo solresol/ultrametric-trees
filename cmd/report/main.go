@@ -59,9 +59,6 @@ func main() {
 	}
 }
 
-
-
-
 func analyzeNodes(nodes []node.Node) []AnalysisResult {
 	timestamps := node.GetSignificantTimestamps(nodes)
 	var results []AnalysisResult
@@ -101,8 +98,6 @@ func calculateResult(nodes []node.Node, timestamp time.Time) AnalysisResult {
 		AvgDataQuantity: avgDataQuantity,
 	}
 }
-
-
 
 func outputCSV(results []AnalysisResult) {
 	w := csv.NewWriter(os.Stdout)

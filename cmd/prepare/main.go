@@ -22,7 +22,7 @@ type WordData struct {
 var hashedPseudoSynsetPrefix = map[string]string{
 	"(noun.other)":        "1.",
 	"(verb.other)":        "3.",
-	"(propernoun.other)": "1.3.",
+	"(propernoun.other)":  "1.3.",
 	"(preposition.other)": "6.",
 	"(adjective.other)":   "2.",
 	"(adverb.other)":      "4.",
@@ -85,8 +85,6 @@ func getPath(db *sql.DB, wordID int, word string, synset sql.NullString) (WordDa
 	hashedWord := hashThing(word)
 	return WordData{WordID: wordID, Word: word, Synset: synset, Path: prefix + hashedWord}, nil
 }
-
-
 
 // prepare's CLI arguments:
 //  --input-database
@@ -156,7 +154,7 @@ func main() {
 	overlapRecordCount := 0
 
 	for storyIteration := range storyChan {
-		percentComplete := 100.0 * float64(storyIteration.TotalStories - storyIteration.NumberLeftToCheck) / float64(storyIteration.TotalStories)
+		percentComplete := 100.0 * float64(storyIteration.TotalStories-storyIteration.NumberLeftToCheck) / float64(storyIteration.TotalStories)
 		if storyIteration.StatusOnly {
 			log.Printf("Skipping stories where all words are unresolved. %d stories remaining to examine. %.2f%% complete.", storyIteration.NumberLeftToCheck, percentComplete)
 			continue
@@ -229,7 +227,6 @@ func createOutputTables(db *sql.DB, contextLength int, outputTable string) {
 	log.Printf("All indexes are in place")
 }
 
-
 func resolvedWordsInStory(db *sql.DB, storyID int) (int, error) {
 	query := `SELECT count(resolved_synset) FROM words JOIN sentences s ON sentence_id = s.id WHERE s.story_id = ?`
 	var count int
@@ -240,12 +237,11 @@ func resolvedWordsInStory(db *sql.DB, storyID int) (int, error) {
 	return count, nil
 }
 
-
 type StoryIteration struct {
-	StoryID int
+	StoryID           int
 	NumberLeftToCheck int
-	TotalStories int
-	StatusOnly bool
+	TotalStories      int
+	StatusOnly        bool
 }
 
 func getStories(db *sql.DB, modulo, congruent int) (<-chan StoryIteration, error) {
@@ -314,10 +310,10 @@ func processStory(inputDB, outputDB *sql.DB, storyID, contextLength int, outputT
 	log.Printf("Found %d words in story %d, of which %d were annotated", len(words), storyID, annotationCount)
 
 	// Fake up a word ID for text position markers
-	startOfTextMarker := - (storyID * 2)
-	endOfTextMarker := - (storyID * 2) - 1
+	startOfTextMarker := -(storyID * 2)
+	endOfTextMarker := -(storyID * 2) - 1
 	startOfText, err := getPath(inputDB, startOfTextMarker, "<START-OF-TEXT>", sql.NullString{
-		Valid: true,
+		Valid:  true,
 		String: "(punctuation.other)",
 	})
 	if err != nil {
@@ -326,7 +322,7 @@ func processStory(inputDB, outputDB *sql.DB, storyID, contextLength int, outputT
 	// fmt.Printf("Start of text = %s\n", startOfText.Path)
 
 	endOfText, err := getPath(inputDB, endOfTextMarker, "<END-OF-TEXT>", sql.NullString{
-		Valid: true,
+		Valid:  true,
 		String: "(punctuation.other)",
 	})
 	if err != nil {
@@ -342,7 +338,7 @@ func processStory(inputDB, outputDB *sql.DB, storyID, contextLength int, outputT
 	overlapSize := 0
 	newlyAddedData := 0
 	for idx, word := range words {
-		if (idx % 100 == 0) || (idx == len(words)-1) {
+		if (idx%100 == 0) || (idx == len(words)-1) {
 			//log.Printf("Adding words for story %d. Progress: %d/%d", storyID, idx+1, len(words))
 		}
 		if word.Path == "" {
@@ -447,15 +443,15 @@ func insertTrainingData(db *sql.DB, buffer []WordData, contextLength int, output
 		return false, fmt.Errorf("Could not count the appearances of targetword_id = %d: %v", buffer[contextLength].WordID, err)
 	}
 	if numberOfAppearances > 1 {
-		return true, fmt.Errorf("The word ID = %d appears %d times in the database",  buffer[contextLength].WordID, numberOfAppearances)
+		return true, fmt.Errorf("The word ID = %d appears %d times in the database", buffer[contextLength].WordID, numberOfAppearances)
 	}
 	if numberOfAppearances == 1 {
 		// It already exists, quite normal situation. Don't need to insert anything
-		return true,nil
+		return true, nil
 	}
 	tx, err := db.Begin()
 	if err != nil {
-		return false,fmt.Errorf("Error starting transaction: %v", err)
+		return false, fmt.Errorf("Error starting transaction: %v", err)
 	}
 
 	// Insert into training_data table
@@ -478,7 +474,7 @@ func insertTrainingData(db *sql.DB, buffer []WordData, contextLength int, output
 	_, err = tx.Exec(query, args...)
 	if err != nil {
 		tx.Rollback()
-		return false,fmt.Errorf("Error inserting training data: %v", err)
+		return false, fmt.Errorf("Error inserting training data: %v", err)
 	}
 
 	// Update decodings table
@@ -489,14 +485,14 @@ func insertTrainingData(db *sql.DB, buffer []WordData, contextLength int, output
 			ON CONFLICT(path, word) DO UPDATE SET usage_count = usage_count + 1
 		`, word.Path, word.Word)
 		if err != nil {
-			return false,fmt.Errorf("Error updating decodings: %v", err)
+			return false, fmt.Errorf("Error updating decodings: %v", err)
 		}
 	}
 
 	err = tx.Commit()
 	if err != nil {
 		tx.Rollback()
-		return false,fmt.Errorf("Error committing transaction: %v", err)
+		return false, fmt.Errorf("Error committing transaction: %v", err)
 	}
-	return false,nil
+	return false, nil
 }

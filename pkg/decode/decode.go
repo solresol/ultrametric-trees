@@ -3,8 +3,8 @@ package decode
 import (
 	"database/sql"
 	"fmt"
+	"github.com/solresol/ultrametric-trees/pkg/node"
 	"log"
-	"github.com/solresol/ultrametric-trees/pkg/node"	
 )
 
 // DecodePath looks up a synset path in the decodings table and returns the most common word
@@ -51,7 +51,7 @@ func NodeAncestry(db *sql.DB, n node.Node) (string, error) {
 	display := "{} -> "
 	log.Printf("There were %d ancestors for node %d", len(ancestors), n.ID)
 	for idx, a := range ancestors {
-		if idx == len(ancestors) - 1 {
+		if idx == len(ancestors)-1 {
 			// Then we just show this node.
 			decodedExemplar, err := DecodePath(db, a.ExemplarValue.String)
 			if err != nil {
@@ -60,7 +60,7 @@ func NodeAncestry(db *sql.DB, n node.Node) (string, error) {
 			display = fmt.Sprintf("%s [Node %d says 'predict %s (%s)']", display, a.ID, a.ExemplarValue.String, decodedExemplar)
 			continue
 		}
-		nextAncestor := ancestors[idx + 1]
+		nextAncestor := ancestors[idx+1]
 		decodedRegion, err := DecodePath(db, a.InnerRegionPrefix.String)
 		if err != nil {
 			// log.Printf("Couldn't decode %s: %v", a.InnerRegionPrefix.String, err)

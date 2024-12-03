@@ -10,9 +10,9 @@ import (
 	"time"
 
 	_ "github.com/mattn/go-sqlite3"
-	"github.com/solresol/ultrametric-trees/pkg/inference"
-	"github.com/solresol/ultrametric-trees/pkg/exemplar"
 	"github.com/solresol/ultrametric-trees/pkg/decode"
+	"github.com/solresol/ultrametric-trees/pkg/exemplar"
+	"github.com/solresol/ultrametric-trees/pkg/inference"
 )
 
 func main() {
@@ -136,7 +136,7 @@ func processValidationData(trainingDB, validationDB, outputDB *sql.DB, engine *i
 		SELECT id, %s, targetword
 		FROM %s
 		ORDER BY id
-	`, getContextColumns(contextLength), validationTable) 
+	`, getContextColumns(contextLength), validationTable)
 
 	if limit > 0 {
 		query = fmt.Sprintf("%s LIMIT %d", query, limit)
@@ -155,7 +155,7 @@ func processValidationData(trainingDB, validationDB, outputDB *sql.DB, engine *i
 		var id int
 		var correctAnswer string
 		contexts := make([]sql.NullString, contextLength)
-		scanArgs := make([]interface{}, contextLength + 2)
+		scanArgs := make([]interface{}, contextLength+2)
 		scanArgs[0] = &id
 		scanArgs[17] = &correctAnswer
 		for i := range contexts {
@@ -178,7 +178,6 @@ func processValidationData(trainingDB, validationDB, outputDB *sql.DB, engine *i
 			return err
 		}
 		log.Printf("INFERING %d: %s", id, contextString)
-
 
 		// Perform inference
 		result, err := engine.InferSingle(contextStrings)
@@ -218,8 +217,8 @@ func processValidationData(trainingDB, validationDB, outputDB *sql.DB, engine *i
 	_, err = outputDB.Exec("update validation_runs set validation_end_time = current_timestamp, number_of_data_points = ?, total_loss = ?, average_depth = ?, average_in_region_hits = ? where validation_run_id = ?",
 		totalDataPoints,
 		totalLoss,
-		float64(totalDepth) / float64(totalDataPoints),
-		float64(totalInRegionHits) / float64(totalDataPoints),
+		float64(totalDepth)/float64(totalDataPoints),
+		float64(totalInRegionHits)/float64(totalDataPoints),
 		validation_run_id)
 	if err != nil {
 		return fmt.Errorf("error closing off validation run %d: %v", validation_run_id, err)

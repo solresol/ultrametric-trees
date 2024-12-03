@@ -5,13 +5,13 @@ import (
 	"flag"
 	"fmt"
 	"log"
-	"time"
 	"strings"
+	"time"
 
 	_ "github.com/mattn/go-sqlite3"
 
-	"github.com/solresol/ultrametric-trees/pkg/node"
 	"github.com/solresol/ultrametric-trees/pkg/exemplar"
+	"github.com/solresol/ultrametric-trees/pkg/node"
 )
 
 func main() {
@@ -52,8 +52,7 @@ func main() {
 	}
 }
 
-
-func displayTree(db *sql.DB,nodes []node.Node) (error) {
+func displayTree(db *sql.DB, nodes []node.Node) error {
 	nodeMap := make(map[int]node.Node)
 	for _, n := range nodes {
 		nodeMap[n.ID] = n
@@ -63,7 +62,7 @@ func displayTree(db *sql.DB,nodes []node.Node) (error) {
 	// err := displayNodeAndChildren(db, 0, int(exemplar.RootNodeID), nodeMap, "", "[DEFAULT]", false)
 	err := displayNodeRecursively(db, 0, int(exemplar.RootNodeID), nodeMap, "Root node")
 	return err
-	
+
 }
 
 // This almost exactly duplicates decode.DecodePath
@@ -77,10 +76,10 @@ func getWordFromPath(db *sql.DB, path string) (bool, string, error) {
 	if err != nil {
 		return false, "", fmt.Errorf("Could not read word from path: %v", err)
 	}
-	return true, w, nil	
+	return true, w, nil
 }
 
-func findParent (nodeMap map[int]node.Node, childId int) (int, bool) {
+func findParent(nodeMap map[int]node.Node, childId int) (int, bool) {
 	// Dreadfully inefficient
 	for nodeId, nodeObj := range nodeMap {
 		if nodeObj.InnerRegionNodeID.Valid && int(nodeObj.InnerRegionNodeID.Int64) == childId {
@@ -88,26 +87,26 @@ func findParent (nodeMap map[int]node.Node, childId int) (int, bool) {
 		}
 		if nodeObj.OuterRegionNodeID.Valid && int(nodeObj.OuterRegionNodeID.Int64) == childId {
 			return nodeId, false
-		}		
+		}
 	}
 	return -1, false
 }
 
 type InnerRegion struct {
-	RegionPrefix     string
-	RegionNodeID     int
+	RegionPrefix string
+	RegionNodeID int
 }
 
-func flattenDescendantsWithSameContext (nodeMap map[int]node.Node, currentNode node.Node) ([]InnerRegion, int) {
+func flattenDescendantsWithSameContext(nodeMap map[int]node.Node, currentNode node.Node) ([]InnerRegion, int) {
 	var descendants []InnerRegion
 	loopNode := currentNode
-	
+
 	if !loopNode.ContextK.Valid {
 		// That means I have no children. I can't really start. Maybe this should be an error?
 		return descendants, -1
-	}	
+	}
 	context := currentNode.ContextK.Int64
-	
+
 	for {
 		if !loopNode.ContextK.Valid {
 			return descendants, -1
@@ -115,7 +114,7 @@ func flattenDescendantsWithSameContext (nodeMap map[int]node.Node, currentNode n
 		if loopNode.ContextK.Int64 != context {
 			return descendants, loopNode.ID
 		}
-		
+
 		outerChild, exists := nodeMap[int(loopNode.OuterRegionNodeID.Int64)]
 		innerRegion := InnerRegion{RegionPrefix: loopNode.InnerRegionPrefix.String,
 			RegionNodeID: int(loopNode.InnerRegionNodeID.Int64)}
@@ -130,8 +129,8 @@ func flattenDescendantsWithSameContext (nodeMap map[int]node.Node, currentNode n
 	}
 }
 
-func displayInnerDescendants(db *sql.DB, depth int, regions []InnerRegion, nodeMap map[int]node.Node, context int) (error) {
-	prefix := strings.Repeat(" ", depth)	
+func displayInnerDescendants(db *sql.DB, depth int, regions []InnerRegion, nodeMap map[int]node.Node, context int) error {
+	prefix := strings.Repeat(" ", depth)
 	//fmt.Printf("%sTHERE ARE %d DESCENDANTS AT Depth %d,\n", prefix, len(regions), depth)
 	for _, value := range regions {
 		exists, region, err := getWordFromPath(db, value.RegionPrefix)
@@ -150,8 +149,8 @@ func displayInnerDescendants(db *sql.DB, depth int, regions []InnerRegion, nodeM
 	return nil
 }
 
-func displayOuterDescendant(db *sql.DB, depth int, outerNodeID int, nodeMap map[int]node.Node, context int, regionsWeAreOutOf []InnerRegion) (error) {
-	prefix := strings.Repeat(" ", depth)		
+func displayOuterDescendant(db *sql.DB, depth int, outerNodeID int, nodeMap map[int]node.Node, context int, regionsWeAreOutOf []InnerRegion) error {
+	prefix := strings.Repeat(" ", depth)
 	displayRegionsWeAreOutOf := ""
 	for idx, value := range regionsWeAreOutOf {
 		exists, region, err := getWordFromPath(db, value.RegionPrefix)
@@ -160,7 +159,7 @@ func displayOuterDescendant(db *sql.DB, depth int, outerNodeID int, nodeMap map[
 		}
 		if !exists {
 			region = value.RegionPrefix
-		}		
+		}
 		if idx == 0 {
 			displayRegionsWeAreOutOf = region
 		} else {
@@ -175,8 +174,7 @@ func displayOuterDescendant(db *sql.DB, depth int, outerNodeID int, nodeMap map[
 	return nil
 }
 
-
-func displayNodeRecursively(db *sql.DB, depth int, nodeID int, nodeMap map[int]node.Node, nodeText string) (error) {
+func displayNodeRecursively(db *sql.DB, depth int, nodeID int, nodeMap map[int]node.Node, nodeText string) error {
 	prefix := strings.Repeat(" ", depth)
 	n, exists := nodeMap[nodeID]
 	if !exists {
@@ -199,10 +197,10 @@ func displayNodeRecursively(db *sql.DB, depth int, nodeID int, nodeMap map[int]n
 			showChildren = false
 		}
 	}
-	
+
 	if !showChildren {
 		fmt.Printf("%s -- predict the word *%s*, loss = %f, %d training samples\n", nodeText, suggestion, n.Loss.Float64, n.DataQuantity.Int64)
-		return nil;
+		return nil
 	}
 	fmt.Printf("%s -- (obsolete: predicted the word *%s*, loss = %f, %d training samples)\n", nodeText, suggestion, n.Loss.Float64, n.DataQuantity.Int64)
 	sameContextDescendants, outer := flattenDescendantsWithSameContext(nodeMap, n)
@@ -219,9 +217,7 @@ func displayNodeRecursively(db *sql.DB, depth int, nodeID int, nodeMap map[int]n
 	return nil
 }
 
-
-
-func displayNodeAndChildren(db *sql.DB, depth int, nodeID int, nodeMap map[int]node.Node, insideMessage string, outsideOfMessage string, nodeWasInside bool) (error) {
+func displayNodeAndChildren(db *sql.DB, depth int, nodeID int, nodeMap map[int]node.Node, insideMessage string, outsideOfMessage string, nodeWasInside bool) error {
 	prefix := strings.Repeat(" ", depth)
 	n, exists := nodeMap[nodeID]
 	if !exists {
@@ -260,7 +256,7 @@ func displayNodeAndChildren(db *sql.DB, depth int, nodeID int, nodeMap map[int]n
 	}
 	if !showChildren {
 		fmt.Printf("%s- Depth %d, Node %d, Parent %d: suggestion is %s when %s, loss %f, %d usages\n", prefix, depth, n.ID, parent, suggestion, myMessage, n.Loss.Float64, n.DataQuantity.Int64)
-		return nil;
+		return nil
 	}
 
 	exists, region, err := getWordFromPath(db, n.InnerRegionPrefix.String)
@@ -277,8 +273,6 @@ func displayNodeAndChildren(db *sql.DB, depth int, nodeID int, nodeMap map[int]n
 	err = displayOuterDescendant(db, depth, outer, nodeMap, int(n.ContextK.Int64), sameContextDescendants)
 	grandchildAdoption := false
 
-
-	
 	var outerChildMessage string
 	if grandchildAdoption {
 		outerChildMessage = fmt.Sprintf("(%s,%s)", outsideOfMessage, region)
@@ -286,25 +280,21 @@ func displayNodeAndChildren(db *sql.DB, depth int, nodeID int, nodeMap map[int]n
 		outerChildMessage = fmt.Sprintf("context%d is outside %s", n.ContextK.Int64, region)
 	}
 
+	insideChildMessage := fmt.Sprintf("context%d is inside [%s]", n.ContextK.Int64, region)
 
-	insideChildMessage :=  fmt.Sprintf("context%d is inside [%s]", n.ContextK.Int64, region)
-
-	err = displayNodeAndChildren(db, depth + 1, int(n.InnerRegionNodeID.Int64), nodeMap, insideChildMessage, outerChildMessage, true)
+	err = displayNodeAndChildren(db, depth+1, int(n.InnerRegionNodeID.Int64), nodeMap, insideChildMessage, outerChildMessage, true)
 	if err != nil {
 		return err
 	}
-
-	
 
 	if grandchildAdoption {
 		err = displayNodeAndChildren(db, depth, int(n.OuterRegionNodeID.Int64), nodeMap, "", outerChildMessage, false)
 	} else {
-		err = displayNodeAndChildren(db, depth + 1, int(n.OuterRegionNodeID.Int64), nodeMap, "", outerChildMessage, false)
+		err = displayNodeAndChildren(db, depth+1, int(n.OuterRegionNodeID.Int64), nodeMap, "", outerChildMessage, false)
 	}
-		
+
 	if err != nil {
 		return err
 	}
-	return nil;
+	return nil
 }
-

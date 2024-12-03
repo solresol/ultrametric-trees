@@ -2,9 +2,9 @@ package exemplar
 
 import (
 	"database/sql"
+	_ "github.com/mattn/go-sqlite3"
 	"reflect"
 	"testing"
-	_ "github.com/mattn/go-sqlite3"
 )
 
 func TestSynsetpathRoundTrip(t *testing.T) {
@@ -59,7 +59,6 @@ func TestParseSynsetpathError(t *testing.T) {
 	}
 }
 
-
 func TestTableExists(t *testing.T) {
 	db, err := sql.Open("sqlite3", ":memory:")
 	if err != nil {
@@ -95,7 +94,6 @@ func TestTableExists(t *testing.T) {
 		})
 	}
 }
-
 
 func TestCompareTableRowCounts(t *testing.T) {
 	db, err := sql.Open("sqlite3", ":memory:")
@@ -141,7 +139,6 @@ func TestCompareTableRowCounts(t *testing.T) {
 	}
 }
 
-
 func TestIsTableEmpty(t *testing.T) {
 	db, err := sql.Open("sqlite3", ":memory:")
 	if err != nil {
@@ -186,7 +183,6 @@ func TestIsTableEmpty(t *testing.T) {
 		t.Error("IsTableEmpty with non-existent table should return an error")
 	}
 }
-
 
 func TestMostUrgentToImprove(t *testing.T) {
 	db, err := sql.Open("sqlite3", ":memory:")
