@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log"
 	"strings"
+	"time"
 	"github.com/solresol/ultrametric-trees/pkg/node"
 	"github.com/solresol/ultrametric-trees/pkg/decode"
 )
@@ -24,8 +25,8 @@ type ModelInference struct {
 }
 
 // NewModelInference creates a new inference engine from a trained model
-func NewModelInference(db *sql.DB, nodesTable string) (*ModelInference, error) {
-	nodes, err := node.FetchNodes(db, nodesTable)
+func NewModelInference(db *sql.DB, nodesTable string, timeFilter time.Time) (*ModelInference, error) {
+	nodes, err := node.FetchNodesAsOf(db, nodesTable, timeFilter)
 	if err != nil {
 		return nil, fmt.Errorf("failed to fetch nodes: %v", err)
 	}
