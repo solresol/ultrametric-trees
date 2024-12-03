@@ -12,9 +12,12 @@ cd ~/ultrametric-trees
 sqlite3 ~/ultratree-results/inferences.sqlite ".dump validation_runs" > ~/ultratree-results/validation_runs.sql
 sqlite3 ~/ultratree-results/inferences.sqlite ".dump inferences" > ~/ultratree-results/inferences.sql
 
+./bin/report -db /ultratree/language-model/tiny.sqlite > ~/ultratree-results/training-results.csv
+
 cd ~/ultratree-results
 git pull -q
 git add validation_runs.sql
 git add inferences.sql
+git add training-results.csv
 git commit -q -m"Automatic updates $(date +%Y-%m-%d)"
 git push -q
