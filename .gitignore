@@ -30,3 +30,4 @@ bin/*
 dict/*
 slm-w2.sqlite
 .claudesync
+w2.sqlite
