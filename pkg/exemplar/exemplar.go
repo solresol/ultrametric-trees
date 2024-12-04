@@ -44,7 +44,7 @@ func (sp Synsetpath) String() string {
 	return strings.Join(parts, ".")
 }
 
-func LoadRows(db *sql.DB, dataframeTable string, nodeBucketTable string, nodeID int) ([]node.Node, error) {
+func LoadRows(db *sql.DB, dataframeTable string, nodeBucketTable string, nodeID int) ([]DataFrameRow, error) {
 	query := fmt.Sprintf("SELECT id, targetword FROM %s JOIN %s USING (id) WHERE node_id = ? order by id", dataframeTable, nodeBucketTable)
 
 	rows, err := db.Query(query, nodeID)
@@ -53,9 +53,9 @@ func LoadRows(db *sql.DB, dataframeTable string, nodeBucketTable string, nodeID 
 	}
 	defer rows.Close()
 
-	var result []node.Node
+	var result []DataFrameRow
 	for rows.Next() {
-		var r node.Node
+		var r DataFrameRow
 		var targetWordStr string
 		if err := rows.Scan(&r.RowID, &targetWordStr); err != nil {
 			return nil, err
@@ -215,7 +215,7 @@ func FindBestExemplar(rows []DataFrameRow, exemplarGuesses, costGuesses int, rng
 	return bestExemplar, bestLoss, nil
 }
 
-func UpdateNodeIDs(tx *sql.Tx, table string, rowIDs []int, newNodeID node.NodeID) error {
+func UpdateNodeIDs(tx *sql.Tx, table string, rowIDs []int, newNodeID int) error {
 	if len(rowIDs) == 0 {
 		return nil
 	}
