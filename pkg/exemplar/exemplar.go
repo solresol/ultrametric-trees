@@ -1,7 +1,7 @@
 package exemplar
 
 import (
-	"github.com/solresol/ultrametric-trees/pkg/node"
+
 	"database/sql"
 	"fmt"
 	"math"
@@ -48,7 +48,7 @@ func (sp Synsetpath) String() string {
 	return strings.Join(parts, ".")
 }
 
-func LoadRows(db *sql.DB, dataframeTable string, nodeBucketTable string, nodeID int) ([]node.Node, error) {
+func LoadRows(db *sql.DB, dataframeTable string, nodeBucketTable string, nodeID common.NodeID) ([]common.Node, error) {
 	query := fmt.Sprintf("SELECT id, targetword FROM %s JOIN %s USING (id) WHERE node_id = ? order by id", dataframeTable, nodeBucketTable)
 
 	rows, err := db.Query(query, nodeID)
@@ -57,9 +57,9 @@ func LoadRows(db *sql.DB, dataframeTable string, nodeBucketTable string, nodeID 
 	}
 	defer rows.Close()
 
-	var result []node.Node
+	var result []common.Node
 	for rows.Next() {
-		var r node.Node
+		var r common.Node
 		var targetWordStr string
 		if err := rows.Scan(&r.RowID, &targetWordStr); err != nil {
 			return nil, err
@@ -71,13 +71,13 @@ func LoadRows(db *sql.DB, dataframeTable string, nodeBucketTable string, nodeID 
 		r.TargetWord = synsetpath
 		result = append(result, r)
 	}
-	// Conversion from DataFrameRow to node.Node already done above
+	// Conversion from DataFrameRow to common.Node already done above
 return result, nil
 }
 
 // LoadContextNWithinNode is basically the same as LoadRows, except that instead of selecting targetword, it will be selecting contextk and filtering on nodeID. It returns an array, which has to be in the same order as LoadRows returns it (i.e. both should be sorted by ID).
 
-func LoadContextNWithinNode(db *sql.DB, dataframeTable string, nodeBucketTable string, nodeID int, k int, contextLength int) ([]node.Node, error) {
+func LoadContextNWithinNode(db *sql.DB, dataframeTable string, nodeBucketTable string, nodeID common.NodeID, k int, contextLength int) ([]common.Node, error) {
 	if k < 1 || k > contextLength {
 		return nil, fmt.Errorf("k must be between 1 and %d", contextLength)
 	}
@@ -90,9 +90,9 @@ func LoadContextNWithinNode(db *sql.DB, dataframeTable string, nodeBucketTable s
 	}
 	defer rows.Close()
 
-	var result []node.Node
+	var result []common.Node
 	for rows.Next() {
-		var r node.Node
+		var r common.Node
 		var contextWordStr string
 		if err := rows.Scan(&r.RowID, &contextWordStr); err != nil {
 			return nil, err
@@ -104,7 +104,7 @@ func LoadContextNWithinNode(db *sql.DB, dataframeTable string, nodeBucketTable s
 		r.TargetWord = synsetpath
 		result = append(result, r)
 	}
-	// Conversion from DataFrameRow to node.Node already done above
+	// Conversion from DataFrameRow to common.Node already done above
 return result, nil
 }
 
@@ -219,7 +219,7 @@ func FindBestExemplar(rows []DataFrameRow, exemplarGuesses, costGuesses int, rng
 	return bestExemplar, bestLoss, nil
 }
 
-func UpdateNodeIDs(tx *sql.Tx, table string, rowIDs []int, newNodeID node.NodeID) error {
+func UpdateNodeIDs(tx *sql.Tx, table string, rowIDs []int, newNodeID common.NodeID) error {
 	if len(rowIDs) == 0 {
 		return nil
 	}
@@ -307,7 +307,7 @@ func IsTableEmpty(db *sql.DB, tableName string) (bool, error) {
 	return !exists, nil
 }
 
-func MostUrgentToImprove(db *sql.DB, nodesTable string, minSizeToConsider int) (node.NodeID, float64, error) {
+func MostUrgentToImprove(db *sql.DB, nodesTable string, minSizeToConsider int) (common.NodeID, float64, error) {
 	query := fmt.Sprintf(`
 		SELECT id, loss
 		FROM %s
