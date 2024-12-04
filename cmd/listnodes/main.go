@@ -80,8 +80,8 @@ func convertDataFrameRowsToNodes(dataFrameRows []exemplar.DataFrameRow) ([]node.
 	var nodes []node.Node
 	for _, row := range dataFrameRows {
 		nodes = append(nodes, node.Node{
-			ID: row.RowID,
-			// Assuming other fields need to be filled with default or placeholder values
+			ID: row.RowID, // row.RowID is correctly set to node.Node.ID
+			// Other fields are filled with default values where appropriate
 			ExemplarValue:      sql.NullString{String: row.TargetWord.String(), Valid: true},
 			DataQuantity:       0, // Placeholder
 			Loss:               0.0, // Placeholder
