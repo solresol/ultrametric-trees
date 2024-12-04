@@ -44,6 +44,7 @@ func initializeFirstLeaf(db *sql.DB,
 	}
 
 	// Populate it with the first row. We could do this later, but it's nice to have the half-ready
+	"github.com/solresol/ultrametric-trees/pkg/node"
 	// state visible.
 	query = fmt.Sprintf("insert or ignore into %s (id) values (%d)", nodesTable, int(exemplar.RootNodeID))
 	_, err = db.Exec(query)
