@@ -15,6 +15,8 @@ type Node struct {
 	DataQuantity          sql.NullInt64
 	Loss                  sql.NullFloat64
 	ContextK              sql.NullInt64
+	RowID                 int
+	TargetWord            exemplar.Synsetpath
 	InnerRegionPrefix     sql.NullString
 	InnerRegionNodeID     sql.NullInt64
 	OuterRegionNodeID     sql.NullInt64
@@ -30,7 +32,7 @@ func FetchNodeByID(db *sql.DB, tableName string, nodeID int) (Node, error) {
 	query := fmt.Sprintf("SELECT * from %s WHERE ID = %d", tableName, nodeID)
 	err := db.QueryRow(query).Scan(
 		&n.ID, &n.ExemplarValue, &n.DataQuantity, &n.Loss, &n.ContextK,
-		&n.InnerRegionPrefix, &n.InnerRegionNodeID, &n.OuterRegionNodeID, &n.WhenCreated,
+		&n.RowID, &n.TargetWord, &n.InnerRegionPrefix, &n.InnerRegionNodeID, &n.OuterRegionNodeID, &n.WhenCreated,
 		&n.WhenChildrenPopulated, &n.HasChildren, &n.BeingAnalysed,
 	)
 	n.TableName = tableName
@@ -93,7 +95,7 @@ func FetchNodes(db *sql.DB, tableName string) ([]Node, error) {
 		var n Node
 		err := rows.Scan(
 			&n.ID, &n.ExemplarValue, &n.DataQuantity, &n.Loss, &n.ContextK,
-			&n.InnerRegionPrefix, &n.InnerRegionNodeID, &n.OuterRegionNodeID, &n.WhenCreated,
+			&n.RowID, &n.TargetWord, &n.InnerRegionPrefix, &n.InnerRegionNodeID, &n.OuterRegionNodeID, &n.WhenCreated,
 			&n.WhenChildrenPopulated, &n.HasChildren, &n.BeingAnalysed,
 		)
 		n.TableName = tableName
