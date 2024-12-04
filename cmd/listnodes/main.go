@@ -79,22 +79,22 @@ func main() {
 func convertDataFrameRowsToNodes(dataFrameRows []exemplar.DataFrameRow) ([]node.Node, error) {
 	var nodes []node.Node
 	for _, row := range dataFrameRows {
-		nodes = append(nodes, node.Node{
-			ID: row.RowID,
-			// Assuming other fields need to be filled with default or placeholder values
-			ExemplarValue:      sql.NullString{String: row.TargetWord.String(), Valid: true},
-			DataQuantity:       0, // Placeholder
-			Loss:               0.0, // Placeholder
-			ContextK:           0, // Placeholder
-			InnerRegionPrefix:  sql.NullString{Valid: false}, // Placeholder
-			InnerRegionNodeID:  0, // Placeholder
-			OuterRegionNodeID:  0, // Placeholder
-			WhenCreated:        time.Time{}, // Placeholder
+		node := node.Node{
+			ID:                  row.RowID,
+			ExemplarValue:       sql.NullString{String: row.TargetWord.String(), Valid: true},
+			DataQuantity:        0, // Placeholder
+			Loss:                0.0, // Placeholder
+			ContextK:            0, // Placeholder
+			InnerRegionPrefix:   sql.NullString{Valid: false}, // Placeholder
+			InnerRegionNodeID:   0, // Placeholder
+			OuterRegionNodeID:   0, // Placeholder
+			WhenCreated:         time.Now(), // Placeholder for current time
 			WhenChildrenPopulated: time.Time{}, // Placeholder
-			HasChildren:        false, // Placeholder
-			BeingAnalysed:      false, // Placeholder
-			TableName:          "", // Placeholder
-		})
+			HasChildren:         false, // Placeholder
+			BeingAnalysed:       false, // Placeholder
+			TableName:           "", // Placeholder
+		}
+		nodes = append(nodes, node)
 	}
 	return nodes
 }
