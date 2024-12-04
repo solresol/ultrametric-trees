@@ -134,6 +134,9 @@ func GetAllPossibleSynsets(rows []DataFrameRow) []Synsetpath {
 
 	result := make([]Synsetpath, 0, len(synsetMap))
 	for _, synset := range synsetMap {
+	}
+}
+
 func ConvertDataFrameRowToNode(row DataFrameRow) node.Node {
 	return node.Node{
 		ID: row.RowID,
