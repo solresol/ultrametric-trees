@@ -57,18 +57,17 @@ func LoadRows(db *sql.DB, dataframeTable string, nodeBucketTable string, nodeID 
 	}
 	defer rows.Close()
 
-	var result []node.Node
+	var result []DataFrameRow
 	for rows.Next() {
-		var r node.Node
+		var r DataFrameRow
 		var targetWordStr string
 		if err := rows.Scan(&r.RowID, &targetWordStr); err != nil {
 			return nil, err
 		}
-		synsetpath, err := ParseSynsetpath(targetWordStr)
+		r.TargetWord, err = ParseSynsetpath(targetWordStr)
 		if err != nil {
 			return nil, fmt.Errorf("error parsing synsetpath for row %d: %v", r.RowID, err)
 		}
-		r.TargetWord = synsetpath
 		result = append(result, r)
 	}
 	// Conversion from DataFrameRow to node.Node already done above
