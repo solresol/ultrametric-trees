@@ -31,7 +31,7 @@ func main() {
 	}
 	defer db.Close()
 
-	var nodes []exemplar.DataFrameRow
+	var nodes []node.Node
 	if *nodeId != 0 {
 		dataFrameRows, err := exemplar.LoadRows(db, *tableName, "node_id", exemplar.NodeID(*nodeId))
 		if err != nil || len(dataFrameRows) == 0 {
