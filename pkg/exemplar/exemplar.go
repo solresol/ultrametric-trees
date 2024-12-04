@@ -59,16 +59,10 @@ func LoadRows(db *sql.DB, dataframeTable string, nodeBucketTable string, nodeID 
 
 	var result []DataFrameRow
 	for rows.Next() {
-		var r node.Node
-		var targetWordStr string
-		if err := rows.Scan(&r.RowID, &targetWordStr); err != nil {
+		var r DataFrameRow
+		if err := rows.Scan(&r.RowID, &r.TargetWord); err != nil {
 			return nil, err
 		}
-		synsetpath, err := ParseSynsetpath(targetWordStr)
-		if err != nil {
-			return nil, fmt.Errorf("error parsing synsetpath for row %d: %v", r.RowID, err)
-		}
-		r.TargetWord = synsetpath
 		result = append(result, r)
 	}
 	// Conversion from DataFrameRow to node.Node already done above
@@ -92,16 +86,10 @@ func LoadContextNWithinNode(db *sql.DB, dataframeTable string, nodeBucketTable s
 
 	var result []DataFrameRow
 	for rows.Next() {
-		var r node.Node
-		var contextWordStr string
-		if err := rows.Scan(&r.RowID, &contextWordStr); err != nil {
+		var r DataFrameRow
+		if err := rows.Scan(&r.RowID, &r.TargetWord); err != nil {
 			return nil, err
 		}
-		synsetpath, err := ParseSynsetpath(contextWordStr)
-		if err != nil {
-			return nil, fmt.Errorf("error parsing synsetpath for row %d: %v", r.RowID, err)
-		}
-		r.TargetWord = synsetpath
 		result = append(result, r)
 	}
 	// Conversion from DataFrameRow to node.Node already done above
