@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"sort"
 	"time"
+	
+	"github.com/solresol/ultrametric-trees/pkg/exemplar"
 )
 
 // I'd like to change the type of these nodes from int to a nodeID type
