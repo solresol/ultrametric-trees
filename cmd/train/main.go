@@ -15,6 +15,7 @@ import (
 	"github.com/solresol/ultrametric-trees/pkg/decode"
 	"github.com/solresol/ultrametric-trees/pkg/exemplar"
 	"github.com/solresol/ultrametric-trees/pkg/node"
+	"github.com/solresol/ultrametric-trees/pkg/exemplar"
 )
 
 // Initialises a table of node-mapping-to-row with
@@ -46,7 +47,7 @@ func initializeFirstLeaf(db *sql.DB,
 
 	// Populate it with the first row. We could do this later, but it's nice to have the half-ready
 	// state visible.
-	query = fmt.Sprintf("insert or ignore into %s (id) values (%d)", nodesTable, int(exemplar.RootNodeID))
+	query = fmt.Sprintf("insert or ignore into %s (id) values (%d)", nodesTable, exemplar.RootNodeID)
 	_, err = db.Exec(query)
 	if err != nil {
 		return fmt.Errorf("Could not create the root node in %s: %v", nodesTable, err)
@@ -61,7 +62,7 @@ func initializeFirstLeaf(db *sql.DB,
 
 	// Populate the node-mapping-to-row table
 	query = fmt.Sprintf("insert or ignore into %s (id, node_id) select id, %d from %s",
-		nodeBucketTable, int(exemplar.RootNodeID), trainingDataTable)
+		nodeBucketTable, exemplar.RootNodeID, trainingDataTable)
 	_, err = db.Exec(query)
 	if err != nil {
 		return fmt.Errorf("Could not populate the table %s with records from %s: %v",
@@ -102,7 +103,7 @@ func initializeFirstLeaf(db *sql.DB,
 		UPDATE nodes
 		SET exemplar_value = ?, loss = ?, data_quantity = ?
 		WHERE id = ?
-	`, bestExemplar.String(), bestLoss, len(rows), exemplar.RootNodeID)
+	`, bestExemplar.String(), bestLoss, len(rows), int(exemplar.RootNodeID))
 	if err != nil {
 		return fmt.Errorf("Error updating nodes table: %v", err)
 	}
@@ -197,7 +198,7 @@ func initialisationRequired(db *sql.DB, trainingDataTable, nodeBucketTable, node
 
 func createGoodSplit(db *sql.DB,
 	nodesTable string,
-	nodeID exemplar.NodeID,
+	nodeID int,
 	trainingDataTable string,
 	nodeBucketTable string,
 	splitCountTry int,
@@ -208,7 +209,7 @@ func createGoodSplit(db *sql.DB,
 	rng *rand.Rand) (float64, error) {
 
 	var bestContextK int
-	var bestCircle exemplar.Synsetpath
+	var bestCircle string
 	bestTotalLoss := float64(1<<63 - 1) // Initialize with max float64 value
 	var insideLossOfBest, outsideLossOfBest float64
 	var bestInsideExemplar, bestOutsideExemplar exemplar.Synsetpath
@@ -324,7 +325,7 @@ func createGoodSplit(db *sql.DB,
 	for i, row := range bestOutsideRows {
 		outsideIDs[i] = row.RowID
 	}
-	if err := exemplar.UpdateNodeIDs(tx, nodeBucketTable, outsideIDs, exemplar.NodeID(outerNodeID)); err != nil {
+	if err := exemplar.UpdateNodeIDs(tx, nodeBucketTable, outsideIDs, int(outerNodeID)); err != nil {
 		fmt.Errorf("Error updating outside node IDs: %v", err)
 	}
 
@@ -477,7 +478,7 @@ func main() {
 			log.Printf("Training is complete")
 			return
 		}
-		nextNode, err := node.FetchNodeByID(db, *nodesTable, int(nextNodeID))
+		nextNode, err := node.FetchNodeByID(db, *nodesTable, nextNodeID)
 		if err != nil {
 			log.Fatalf("Could not fetch the node %d: %v", nextNodeID, err)
 		}
@@ -493,7 +494,7 @@ func main() {
 			log.Fatalf("Could not set being_analysed = true on row %d of %s", int(nextNodeID), *nodesTable)
 		}
 
-		newLoss, err := createGoodSplit(db, *nodesTable, nextNodeID, *trainingDataTable, *nodeBucketTable, *splitCountTry, *numCirclesPerSplit, *exemplarGuesses, *costGuesses, *contextLength, rng)
+		newLoss, err := createGoodSplit(db, *nodesTable, int(nextNodeID), *trainingDataTable, *nodeBucketTable, *splitCountTry, *numCirclesPerSplit, *exemplarGuesses, *costGuesses, *contextLength, rng)
 		if err != nil {
 			log.Fatalf("Could not split %s on node %d using training data in %s and node bucket information in %s (splitCountTry=%d, contextLength=%d because: %v", *nodesTable, int(nextNodeID), *trainingDataTable, *nodeBucketTable, *splitCountTry, *contextLength, err)
 		}
