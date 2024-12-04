@@ -6,7 +6,7 @@ import (
 	"sort"
 	"time"
 	
-	"github.com/solresol/ultrametric-trees/pkg/exemplar"
+	"github.com/solresol/ultrametric-trees/pkg/common"
 )
 
 // I'd like to change the type of these nodes from int to a nodeID type
@@ -26,7 +26,7 @@ type Node struct {
 	BeingAnalysed         bool
 	TableName             string
 	RowID                int
-	TargetWord           exemplar.Synsetpath
+	TargetWord           common.NodeID
 }
 
 func FetchNodeByID(db *sql.DB, tableName string, nodeID int) (Node, error) {
