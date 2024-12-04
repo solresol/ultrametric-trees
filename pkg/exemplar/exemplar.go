@@ -57,9 +57,9 @@ func LoadRows(db *sql.DB, dataframeTable string, nodeBucketTable string, nodeID 
 	}
 	defer rows.Close()
 
-	var result []node.Node
+	var result []DataFrameRow
 	for rows.Next() {
-		var r node.Node
+		var r DataFrameRow
 		var targetWordStr string
 		if err := rows.Scan(&r.RowID, &targetWordStr); err != nil {
 			return nil, err
@@ -90,9 +90,9 @@ func LoadContextNWithinNode(db *sql.DB, dataframeTable string, nodeBucketTable s
 	}
 	defer rows.Close()
 
-	var result []node.Node
+	var result []DataFrameRow
 	for rows.Next() {
-		var r node.Node
+		var r DataFrameRow
 		var contextWordStr string
 		if err := rows.Scan(&r.RowID, &contextWordStr); err != nil {
 			return nil, err
