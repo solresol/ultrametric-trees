@@ -1,6 +1,7 @@
 package exemplar
 
 import (
+	"github.com/solresol/ultrametric-trees/pkg/node"
 	"database/sql"
 	"fmt"
 	"math"
@@ -218,7 +219,7 @@ func FindBestExemplar(rows []DataFrameRow, exemplarGuesses, costGuesses int, rng
 	return bestExemplar, bestLoss, nil
 }
 
-func UpdateNodeIDs(tx *sql.Tx, table string, rowIDs []int, newNodeID NodeID) error {
+func UpdateNodeIDs(tx *sql.Tx, table string, rowIDs []int, newNodeID node.NodeID) error {
 	if len(rowIDs) == 0 {
 		return nil
 	}
@@ -306,7 +307,7 @@ func IsTableEmpty(db *sql.DB, tableName string) (bool, error) {
 	return !exists, nil
 }
 
-func MostUrgentToImprove(db *sql.DB, nodesTable string, minSizeToConsider int) (NodeID, float64, error) {
+func MostUrgentToImprove(db *sql.DB, nodesTable string, minSizeToConsider int) (node.NodeID, float64, error) {
 	query := fmt.Sprintf(`
 		SELECT id, loss
 		FROM %s
