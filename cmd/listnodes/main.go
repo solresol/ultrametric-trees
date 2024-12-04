@@ -10,6 +10,7 @@ import (
 
 	_ "github.com/mattn/go-sqlite3"
 	"github.com/solresol/ultrametric-trees/pkg/node"
+	"github.com/solresol/ultrametric-trees/pkg/exemplar"
 )
 
 func main() {
@@ -32,7 +33,7 @@ func main() {
 
 	var nodes []node.Node
 	if *nodeId != 0 {
-		nodes, err = exemplar.LoadRows(db, *tableName, "nodebucket", exemplar.NodeID(*nodeId))
+		nodes, err = exemplar.LoadRows(db, *tableName, "node_id", *nodeId)
 		if err != nil || len(nodes) == 0 {
 			log.Fatalf("Node with ID %d not found or error occurred: %v", *nodeId, err)
 		}
