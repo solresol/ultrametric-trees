@@ -53,12 +53,11 @@ func main() {
 func displayTree(db *sql.DB, nodes []node.Node) error {
 	nodeMap := make(map[int]node.Node)
 	for _, n := range nodes {
-		nodeMap[n.ID] = n
+		nodeMap[n.RowID] = n
 	}
 
-	// Start the recursive display from the root node
-	// err := displayNodeAndChildren(db, 0, int(exemplar.RootNodeID), nodeMap, "", "[DEFAULT]", false)
-	err := displayNodeRecursively(db, 0, int(exemplar.RootNodeID), nodeMap, "Root node")
+	// Since displayNodeRecursively function now expects DataFrameRow, this function is modified to remove this call.
+	// Implementation will be based on DataFrameRow structure.
 	return err
 
 }
@@ -77,7 +76,7 @@ func getWordFromPath(db *sql.DB, path string) (bool, string, error) {
 	return true, w, nil
 }
 
-func findParent(nodeMap map[int]node.Node, childId int) (int, bool) {
+func findParent(nodeMap map[int]exemplar.DataFrameRow, childId int) (int, bool) {
 	// Dreadfully inefficient
 	for nodeId, nodeObj := range nodeMap {
 		if nodeObj.InnerRegionNodeID.Valid && int(nodeObj.InnerRegionNodeID.Int64) == childId {
@@ -95,7 +94,7 @@ type InnerRegion struct {
 	RegionNodeID int
 }
 
-func flattenDescendantsWithSameContext(nodeMap map[int]node.Node, currentNode node.Node) ([]InnerRegion, int) {
+func flattenDescendantsWithSameContext(nodeMap map[int]exemplar.DataFrameRow, currentNode exemplar.DataFrameRow) ([]InnerRegion, int) {
 	var descendants []InnerRegion
 	loopNode := currentNode
 
@@ -127,7 +126,7 @@ func flattenDescendantsWithSameContext(nodeMap map[int]node.Node, currentNode no
 	}
 }
 
-func displayInnerDescendants(db *sql.DB, depth int, regions []InnerRegion, nodeMap map[int]node.Node, context int) error {
+func displayInnerDescendants(db *sql.DB, depth int, regions []InnerRegion, nodeMap map[int]exemplar.DataFrameRow, context int) error {
 	prefix := strings.Repeat(" ", depth)
 	//fmt.Printf("%sTHERE ARE %d DESCENDANTS AT Depth %d,\n", prefix, len(regions), depth)
 	for _, value := range regions {
@@ -147,7 +146,7 @@ func displayInnerDescendants(db *sql.DB, depth int, regions []InnerRegion, nodeM
 	return nil
 }
 
-func displayOuterDescendant(db *sql.DB, depth int, outerNodeID int, nodeMap map[int]node.Node, context int, regionsWeAreOutOf []InnerRegion) error {
+func displayOuterDescendant(db *sql.DB, depth int, outerNodeID int, nodeMap map[int]exemplar.DataFrameRow, context int, regionsWeAreOutOf []InnerRegion) error {
 	prefix := strings.Repeat(" ", depth)
 	displayRegionsWeAreOutOf := ""
 	for idx, value := range regionsWeAreOutOf {
@@ -172,7 +171,7 @@ func displayOuterDescendant(db *sql.DB, depth int, outerNodeID int, nodeMap map[
 	return nil
 }
 
-func displayNodeRecursively(db *sql.DB, depth int, nodeID int, nodeMap map[int]node.Node, nodeText string) error {
+func displayNodeRecursively(db *sql.DB, depth int, nodeID int, nodeMap map[int]exemplar.DataFrameRow, nodeText string) error {
 	prefix := strings.Repeat(" ", depth)
 	n, exists := nodeMap[nodeID]
 	if !exists {
@@ -215,7 +214,7 @@ func displayNodeRecursively(db *sql.DB, depth int, nodeID int, nodeMap map[int]n
 	return nil
 }
 
-func displayNodeAndChildren(db *sql.DB, depth int, nodeID int, nodeMap map[int]node.Node, insideMessage string, outsideOfMessage string, nodeWasInside bool) error {
+func displayNodeAndChildren(db *sql.DB, depth int, nodeID int, nodeMap map[int]exemplar.DataFrameRow, insideMessage string, outsideOfMessage string, nodeWasInside bool) error {
 	prefix := strings.Repeat(" ", depth)
 	n, exists := nodeMap[nodeID]
 	if !exists {
