@@ -6,7 +6,7 @@ build: bin/prepare bin/train bin/report bin/showtree bin/validation bin/listnode
 bin/prepare: cmd/prepare/main.go
 	go build -o bin/prepare cmd/prepare/main.go
 
-bin/train: cmd/train/main.go pkg/exemplar/exemplar.go pkg/node/node.go
+bin/train: cmd/train/main.go pkg/shared/shared.go pkg/node/node.go
 	go build -o bin/train cmd/train/main.go
 
 bin/report: cmd/report/main.go
