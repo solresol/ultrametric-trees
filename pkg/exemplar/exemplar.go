@@ -5,7 +5,8 @@ import (
 	"fmt"
 	"math"
 	"math/rand"
-	"strconv"
+	"strconv"	
+	"github.com/solresol/ultrametric-trees/pkg/node"
 	"strings"
 )
 
