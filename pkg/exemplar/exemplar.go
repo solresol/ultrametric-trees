@@ -85,6 +85,14 @@ func LoadRows(db *sql.DB, dataframeTable string, nodeBucketTable string, nodeID 
 
 // LoadContextNWithinNode is basically the same as LoadRows, except that instead of selecting targetword, it will be selecting contextk and filtering on nodeID. It returns an array, which has to be in the same order as LoadRows returns it (i.e. both should be sorted by ID).
 
+// ConvertDataFrameRowToNode converts a DataFrameRow to a node.Node
+func ConvertDataFrameRowToNode(row DataFrameRow) node.Node {
+	return node.Node{
+		ID: row.RowID,
+		// Add additional field mappings if necessary
+	}
+}
+
 func LoadContextNWithinNode(db *sql.DB, dataframeTable string, nodeBucketTable string, nodeID NodeID, k int, contextLength int) ([]DataFrameRow, error) {
 	if k < 1 || k > contextLength {
 		return nil, fmt.Errorf("k must be between 1 and %d", contextLength)
@@ -102,6 +110,11 @@ func LoadContextNWithinNode(db *sql.DB, dataframeTable string, nodeBucketTable s
 	for rows.Next() {
 		var r DataFrameRow
 		var contextWordStr string
+	}
+	return result, nil
+}
+
+// ConvertDataFrameRowToNode converts a DataFrameRow to a node.Node
 func ConvertDataFrameRowToNode(row DataFrameRow) node.Node {
 	return node.Node{
 		ID: row.RowID,
