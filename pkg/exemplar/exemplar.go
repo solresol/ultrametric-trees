@@ -57,7 +57,7 @@ func LoadRows(db *sql.DB, dataframeTable string, nodeBucketTable string, nodeID 
 	}
 	defer rows.Close()
 
-	var result []DataFrameRow
+	var result []node.Node
 	for rows.Next() {
 		var r DataFrameRow
 		var targetWordStr string
@@ -68,11 +68,13 @@ func LoadRows(db *sql.DB, dataframeTable string, nodeBucketTable string, nodeID 
 		if err != nil {
 			return nil, fmt.Errorf("error parsing synsetpath for row %d: %v", r.RowID, err)
 		}
-		r.TargetWord = synsetpath
-		result = append(result, r)
+		node := node.Node{
+			ID:          r.RowID,
+			ExemplarValue: sql.NullString{String: synsetpath.String(), Valid: true},
+		}
+		result = append(result, node)
 	}
-	// Conversion from DataFrameRow to node.Node already done above
-return result, nil
+	return result, nil
 }
 
 // LoadContextNWithinNode is basically the same as LoadRows, except that instead of selecting targetword, it will be selecting contextk and filtering on nodeID. It returns an array, which has to be in the same order as LoadRows returns it (i.e. both should be sorted by ID).
@@ -101,11 +103,13 @@ func LoadContextNWithinNode(db *sql.DB, dataframeTable string, nodeBucketTable s
 		if err != nil {
 			return nil, fmt.Errorf("error parsing synsetpath for row %d: %v", r.RowID, err)
 		}
-		r.TargetWord = synsetpath
-		result = append(result, r)
+		node := node.Node{
+			ID:          r.RowID,
+			ExemplarValue: sql.NullString{String: synsetpath.String(), Valid: true},
+		}
+		result = append(result, node)
 	}
-	// Conversion from DataFrameRow to node.Node already done above
-return result, nil
+	return result, nil
 }
 
 // GetAllPossibleSynsets returns all possible synsets and synset
