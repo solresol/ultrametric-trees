@@ -7,6 +7,12 @@ import (
 	"time"
 )
 
+import "github.com/solresol/ultrametric-trees/pkg/exemplar"
+
+import "github.com/solresol/ultrametric-trees/pkg/exemplar"
+
+const RootNodeID NodeID = 1
+
 // NodeID is a type alias for int
  type NodeID int
 
