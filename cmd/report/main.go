@@ -48,7 +48,10 @@ func main() {
 		log.Fatalf("Error fetching nodes: %v", err)
 	}
 
-	results := analyzeNodes(nodes)
+	results, err := analyzeNodes(db, *tableName, nodes)
+	if err != nil {
+		log.Fatalf("Could not analyse nodes: %v", err)
+	}
 
 	switch *outputFormat {
 	case "csv":
@@ -60,19 +63,22 @@ func main() {
 	}
 }
 
-func analyzeNodes(nodes []node.Node) []AnalysisResult {
+func analyzeNodes(db *sql.DB, tableName string, nodes []node.Node) ([]AnalysisResult, error) {
 	timestamps := node.GetSignificantTimestamps(nodes)
 	var results []AnalysisResult
 
 	for _, timestamp := range timestamps {
-		relevantNodes := node.FilterNodes(nodes, timestamp, false)
+		relevantNodes, err := node.FetchNodesAsOf(db, tableName, timestamp)
+		if err != nil {
+			return results, err
+		}
 		if len(relevantNodes) > 0 {
 			result := calculateResult(relevantNodes, timestamp)
 			results = append(results, result)
 		}
 	}
 
-	return results
+	return results, nil
 }
 
 func calculateResult(nodes []node.Node, timestamp time.Time) AnalysisResult {
