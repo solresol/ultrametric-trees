@@ -76,7 +76,7 @@ return result, nil
 
 // LoadContextNWithinNode is basically the same as LoadRows, except that instead of selecting targetword, it will be selecting contextk and filtering on nodeID. It returns an array, which has to be in the same order as LoadRows returns it (i.e. both should be sorted by ID).
 
-func LoadContextNWithinNode(db *sql.DB, dataframeTable string, nodeBucketTable string, nodeID int, k int, contextLength int) ([]node.Node, error) {
+func LoadContextNWithinNode(db *sql.DB, dataframeTable string, nodeBucketTable string, nodeID int, k int, contextLength int) ([]DataFrameRow, error) {
 	if k < 1 || k > contextLength {
 		return nil, fmt.Errorf("k must be between 1 and %d", contextLength)
 	}
@@ -89,9 +89,9 @@ func LoadContextNWithinNode(db *sql.DB, dataframeTable string, nodeBucketTable s
 	}
 	defer rows.Close()
 
-	var result []node.Node
+	var result []DataFrameRow
 	for rows.Next() {
-		var r node.Node
+		var r DataFrameRow
 		var contextWordStr string
 		if err := rows.Scan(&r.RowID, &contextWordStr); err != nil {
 			return nil, err
@@ -100,7 +100,8 @@ func LoadContextNWithinNode(db *sql.DB, dataframeTable string, nodeBucketTable s
 		if err != nil {
 			return nil, fmt.Errorf("error parsing synsetpath for row %d: %v", r.RowID, err)
 		}
-		r.TargetWord = synsetpath
+		// Conversion from Synsetpath to DataFrameRow's TargetWord field
+r.TargetWord = synsetpath
 		result = append(result, r)
 	}
 	// Conversion from DataFrameRow to node.Node already done above
