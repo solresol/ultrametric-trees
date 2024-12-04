@@ -6,30 +6,29 @@ import (
 	"sort"
 	"time"
 	
-	"github.com/solresol/ultrametric-trees/pkg/exemplar"
 )
+import "github.com/solresol/ultrametric-trees/pkg/common"
 
 // I'd like to change the type of these nodes from int to a nodeID type
 
 type Node struct {
-	ID                    int
+	ID                    common.NodeID
 	ExemplarValue         sql.NullString
 	DataQuantity          sql.NullInt64
 	Loss                  sql.NullFloat64
 	ContextK              sql.NullInt64
 	InnerRegionPrefix     sql.NullString
-	InnerRegionNodeID     sql.NullInt64
-	OuterRegionNodeID     sql.NullInt64
+	InnerRegionNodeID     common.NodeID
+	OuterRegionNodeID     common.NodeID
 	WhenCreated           time.Time
 	WhenChildrenPopulated sql.NullTime
 	HasChildren           bool
 	BeingAnalysed         bool
 	TableName             string
-	RowID                int
-	TargetWord           exemplar.Synsetpath
+	RowID                common.NodeID
 }
 
-func FetchNodeByID(db *sql.DB, tableName string, nodeID int) (Node, error) {
+func FetchNodeByID(db *sql.DB, tableName string, nodeID common.NodeID) (Node, error) {
 	var n Node
 	query := fmt.Sprintf("SELECT * from %s WHERE ID = %d", tableName, nodeID)
 	err := db.QueryRow(query).Scan(
@@ -47,7 +46,7 @@ func FetchNodeByID(db *sql.DB, tableName string, nodeID int) (Node, error) {
 func FetchParent(db *sql.DB, node Node) (Node, bool, error) {
 	// Open to SQL injection attacks if you can set node.TableName
 	query := fmt.Sprintf("SELECT ID from %s where inner_region_node_id = %d or outer_region_node = %d", node.TableName, node.ID, node.ID)
-	var parentID int
+	var parentID common.NodeID
 	var parentNode Node
 	err := db.QueryRow(query).Scan(&parentID)
 type NodeID int
