@@ -48,6 +48,17 @@ func (sp Synsetpath) String() string {
 	return strings.Join(parts, ".")
 }
 
+type Exemplar struct {
+	Value Synsetpath
+	Loss  float64
+}
+
+func NewExemplar(value Synsetpath, loss float64) Exemplar {
+	return Exemplar{Value: value, Loss: loss}
+}
+	return strings.Join(parts, ".")
+}
+
 func LoadRows(db *sql.DB, dataframeTable string, nodeBucketTable string, nodeID int) ([]node.Node, error) {
 	query := fmt.Sprintf("SELECT id, targetword FROM %s JOIN %s USING (id) WHERE node_id = ? order by id", dataframeTable, nodeBucketTable)
 
