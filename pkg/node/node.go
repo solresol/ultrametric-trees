@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"sort"
 	"time"
+	
+	"github.com/solresol/ultrametric-trees/pkg/exemplar"
 )
 
 // NodeID is a type alias for int
