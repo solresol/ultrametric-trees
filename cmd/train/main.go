@@ -14,7 +14,6 @@ import (
 	_ "github.com/mattn/go-sqlite3"
 	"github.com/solresol/ultrametric-trees/pkg/decode"
 	"github.com/solresol/ultrametric-trees/pkg/exemplar"
-	"github.com/solresol/ultrametric-trees/pkg/node"
 )
 
 // Initialises a table of node-mapping-to-row with
@@ -476,10 +475,6 @@ func main() {
 		if nextNodeID == exemplar.NoNodeID {
 			log.Printf("Training is complete")
 			return
-		}
-		nextNode, err := node.FetchNodeByID(db, *nodesTable, int(nextNodeID))
-		if err != nil {
-			log.Fatalf("Could not fetch the node %d: %v", nextNodeID, err)
 		}
 		ancestryDisplay, err := decode.NodeAncestry(db, nextNode)
 		if err != nil {
