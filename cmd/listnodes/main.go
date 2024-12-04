@@ -32,10 +32,11 @@ func main() {
 
 	var nodes []node.Node
 	if *nodeId != 0 {
-		nodes, err = exemplar.LoadRows(db, *tableName, "nodebucket", exemplar.NodeID(*nodeId))
-		if err != nil || len(nodes) == 0 {
+		individualNode, err := node.FetchNodeByID(db, *tableName, *nodeId)
+		if err != nil {
 			log.Fatalf("Node with ID %d not found or error occurred: %v", *nodeId, err)
 		}
+		nodes = append(nodes, individualNode)
 	} else if *timeStr != "" {
 		timestamp, err := time.Parse(time.RFC3339, *timeStr)
 		if err != nil {
