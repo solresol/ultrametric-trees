@@ -48,7 +48,7 @@ func (sp Synsetpath) String() string {
 	return strings.Join(parts, ".")
 }
 
-func LoadRows(db *sql.DB, dataframeTable string, nodeBucketTable string, nodeID int) ([]DataFrameRow, error) {
+func LoadRows(db *sql.DB, dataframeTable string, nodeBucketTable string, nodeID int) ([]node.Node, error) {
 	query := fmt.Sprintf("SELECT id, targetword FROM %s JOIN %s USING (id) WHERE node_id = ? order by id", dataframeTable, nodeBucketTable)
 
 	rows, err := db.Query(query, nodeID)
@@ -57,23 +57,32 @@ func LoadRows(db *sql.DB, dataframeTable string, nodeBucketTable string, nodeID 
 	}
 	defer rows.Close()
 
-	var result []DataFrameRow
+	var result []node.Node
 	for rows.Next() {
-		var r DataFrameRow
+		var r node.Node
 		var targetWordStr string
-		if err := rows.Scan(&r.RowID, &targetWordStr); err != nil {
+		if err := rows.Scan(&r.ID, &targetWordStr); err != nil {
 			return nil, err
 		}
 		synsetpath, err := ParseSynsetpath(targetWordStr)
 		if err != nil {
-			return nil, fmt.Errorf("error parsing synsetpath for row %d: %v", r.RowID, err)
+			return nil, fmt.Errorf("error parsing synsetpath for row %d: %v", r.ID, err)
 		}
-		r.TargetWord = synsetpath
+		r.ExemplarValue = sql.NullString{String: synsetpath.String(), Valid: true}
+		r.DataQuantity = sql.NullInt64{Int64: 1, Valid: true} // Assuming each row represents one data point
+		r.Loss = sql.NullFloat64{Float64: 0.0, Valid: true}   // Default loss value
+		r.ContextK = sql.NullInt64{Int64: 0, Valid: false}    // Default contextK value
+		r.InnerRegionPrefix = sql.NullString{String: "", Valid: false}
+		r.InnerRegionNodeID = sql.NullInt64{Int64: 0, Valid: false}
+		r.OuterRegionNodeID = sql.NullInt64{Int64: 0, Valid: false}
+		r.WhenCreated = sql.NullTime{Time: time.Now(), Valid: true}
+		r.WhenChildrenPopulated = sql.NullTime{Time: time.Time{}, Valid: false}
+		r.HasChildren = false
+		r.BeingAnalysed = false
+		r.TableName = dataframeTable
 		result = append(result, r)
 	}
-	// Conversion from DataFrameRow to node.Node already done above
-return result, nil
-}
+	return result, nil
 
 // LoadContextNWithinNode is basically the same as LoadRows, except that instead of selecting targetword, it will be selecting contextk and filtering on nodeID. It returns an array, which has to be in the same order as LoadRows returns it (i.e. both should be sorted by ID).
 
@@ -90,18 +99,29 @@ func LoadContextNWithinNode(db *sql.DB, dataframeTable string, nodeBucketTable s
 	}
 	defer rows.Close()
 
-	var result []DataFrameRow
+	var result []node.Node
 	for rows.Next() {
-		var r DataFrameRow
+		var r node.Node
 		var contextWordStr string
-		if err := rows.Scan(&r.RowID, &contextWordStr); err != nil {
+		if err := rows.Scan(&r.ID, &contextWordStr); err != nil {
 			return nil, err
 		}
 		synsetpath, err := ParseSynsetpath(contextWordStr)
 		if err != nil {
-			return nil, fmt.Errorf("error parsing synsetpath for row %d: %v", r.RowID, err)
+			return nil, fmt.Errorf("error parsing synsetpath for row %d: %v", r.ID, err)
 		}
-		r.TargetWord = synsetpath
+		r.ExemplarValue = sql.NullString{String: synsetpath.String(), Valid: true}
+		r.DataQuantity = sql.NullInt64{Int64: 1, Valid: true} // Assuming each row represents one data point
+		r.Loss = sql.NullFloat64{Float64: 0.0, Valid: true}   // Default loss value
+		r.ContextK = sql.NullInt64{Int64: 0, Valid: false}    // Default contextK value
+		r.InnerRegionPrefix = sql.NullString{String: "", Valid: false}
+		r.InnerRegionNodeID = sql.NullInt64{Int64: 0, Valid: false}
+		r.OuterRegionNodeID = sql.NullInt64{Int64: 0, Valid: false}
+		r.WhenCreated = sql.NullTime{Time: time.Now(), Valid: true}
+		r.WhenChildrenPopulated = sql.NullTime{Time: time.Time{}, Valid: false}
+		r.HasChildren = false
+		r.BeingAnalysed = false
+		r.TableName = dataframeTable
 		result = append(result, r)
 	}
 	// Conversion from DataFrameRow to node.Node already done above
