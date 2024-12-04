@@ -31,9 +31,13 @@ func main() {
 	}
 	defer db.Close()
 
-	var nodes []node.Node
+	var nodes []exemplar.DataFrameRow
 	if *nodeId != 0 {
-		nodes, err = exemplar.LoadRows(db, *tableName, "node_id", *nodeId)
+		dataFrameRows, err := exemplar.LoadRows(db, *tableName, "node_id", exemplar.NodeID(*nodeId))
+		if err != nil || len(dataFrameRows) == 0 {
+			log.Fatalf("Node with ID %d not found or error occurred: %v", *nodeId, err)
+		}
+		nodes = convertDataFrameRowsToNodes(dataFrameRows)
 		if err != nil || len(nodes) == 0 {
 			log.Fatalf("Node with ID %d not found or error occurred: %v", *nodeId, err)
 		}
@@ -72,6 +76,28 @@ func main() {
 			decodedInnerRegionPrefix, err := decode.DecodePath(db, n.InnerRegionPrefix.String)
 			if err != nil {
 				decodedInnerRegionPrefix = "<decoding failed>"
+func convertDataFrameRowsToNodes(dataFrameRows []exemplar.DataFrameRow) []node.Node {
+	var nodes []node.Node
+	for _, row := range dataFrameRows {
+		nodes = append(nodes, node.Node{
+			ID: row.RowID,
+			// Assuming other fields need to be filled with default or placeholder values
+			ExemplarValue:      sql.NullString{String: row.TargetWord.String(), Valid: true},
+			DataQuantity:       0, // Placeholder
+			Loss:               0.0, // Placeholder
+			ContextK:           0, // Placeholder
+			InnerRegionPrefix:  sql.NullString{Valid: false}, // Placeholder
+			InnerRegionNodeID:  0, // Placeholder
+			OuterRegionNodeID:  0, // Placeholder
+			WhenCreated:        time.Time{}, // Placeholder
+			WhenChildrenPopulated: time.Time{}, // Placeholder
+			HasChildren:        false, // Placeholder
+			BeingAnalysed:      false, // Placeholder
+			TableName:          "", // Placeholder
+		})
+	}
+	return nodes
+}
 			}
 			fmt.Printf("InnerRegionPrefix: %s (%s)\n", n.InnerRegionPrefix.String, decodedInnerRegionPrefix)
 		} else {
