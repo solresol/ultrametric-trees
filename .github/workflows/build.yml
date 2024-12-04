@@ -1,0 +1,27 @@
+name: Build
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Check out repository code
+      uses: actions/checkout@v2
+
+    - name: Set up Go
+      uses: actions/setup-go@v2
+      with:
+        go-version: 1.22
+
+    - name: Build the project
+      run: make
+      continue-on-error: false
+
+    - name: Output logs for debugging
+      if: failure()
+      run: |
+        echo "Build failed. Check the logs above for details."
