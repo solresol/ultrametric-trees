@@ -197,7 +197,7 @@ func initialisationRequired(db *sql.DB, trainingDataTable, nodeBucketTable, node
 
 func createGoodSplit(db *sql.DB,
 	nodesTable string,
-	nodeID exemplar.NodeID,
+	nodeID common.NodeID,
 	trainingDataTable string,
 	nodeBucketTable string,
 	splitCountTry int,
@@ -225,7 +225,6 @@ func createGoodSplit(db *sql.DB,
 		if err != nil {
 			return 0.0, fmt.Errorf("Error loading target rows: %v", err)
 		}
-
 		possibleSynsets := exemplar.GetAllPossibleSynsets(sourceRows)
 
 		for j := 0; j < numCirclesPerSplit; j++ {
@@ -315,7 +314,7 @@ func createGoodSplit(db *sql.DB,
 	for i, row := range bestInsideRows {
 		insideIDs[i] = row.RowID
 	}
-	if err := exemplar.UpdateNodeIDs(tx, nodeBucketTable, insideIDs, exemplar.NodeID(innerNodeID)); err != nil {
+	if err := exemplar.UpdateNodeIDs(tx, nodeBucketTable, insideIDs, common.NodeID(innerNodeID)); err != nil {
 		fmt.Errorf("Error updating inside node IDs: %v", err)
 	}
 
@@ -324,7 +323,7 @@ func createGoodSplit(db *sql.DB,
 	for i, row := range bestOutsideRows {
 		outsideIDs[i] = row.RowID
 	}
-	if err := exemplar.UpdateNodeIDs(tx, nodeBucketTable, outsideIDs, exemplar.NodeID(outerNodeID)); err != nil {
+	if err := exemplar.UpdateNodeIDs(tx, nodeBucketTable, outsideIDs, common.NodeID(outerNodeID)); err != nil {
 		fmt.Errorf("Error updating outside node IDs: %v", err)
 	}
 
@@ -469,7 +468,7 @@ func main() {
 			}
 		}
 		splitStartTime := time.Now()
-		nextNodeID, currentCost, err := exemplar.MostUrgentToImprove(db, *nodesTable, *nodeSplittingThreshold)
+		nextNodeID, currentCost, err := common.MostUrgentToImprove(db, *nodesTable, *nodeSplittingThreshold)
 		if err != nil {
 			log.Fatalf("Could not find the most urgent node to work ing: %v", err)
 		}
