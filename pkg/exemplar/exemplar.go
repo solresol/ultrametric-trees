@@ -69,14 +69,6 @@ func LoadRows(db *sql.DB, dataframeTable string, nodeBucketTable string, nodeID 
 		}
 		// Assuming node.Node has a field to store Synsetpath or similar
 		// r.SomeField = synsetpath
-		var targetWordStr string
-		if err := rows.Scan(&r.RowID, &targetWordStr); err != nil {
-			return nil, err
-		}
-		synsetpath, err := ParseSynsetpath(targetWordStr)
-		if err != nil {
-			return nil, fmt.Errorf("error parsing synsetpath for row %d: %v", r.RowID, err)
-		}
 		r.TargetWord = synsetpath
 		result = append(result, r)
 	}
