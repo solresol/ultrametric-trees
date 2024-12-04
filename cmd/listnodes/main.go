@@ -1,6 +1,7 @@
 package main
 
 import (
+	"github.com/solresol/ultrametric-trees/pkg/decode"
 	"database/sql"
 	"flag"
 	"fmt"
@@ -45,11 +46,27 @@ func main() {
 
 	for _, n := range nodes {
 		fmt.Printf("ID: %d\n", n.ID)
-		fmt.Printf("ExemplarValue: %v\n", n.ExemplarValue)
+		if n.ExemplarValue.Valid {
+			decodedExemplarValue, err := decode.DecodePath(db, n.ExemplarValue.String)
+			if err != nil {
+				decodedExemplarValue = "<decoding failed>"
+			}
+			fmt.Printf("ExemplarValue: %s (%s)\n", n.ExemplarValue.String, decodedExemplarValue)
+		} else {
+			fmt.Printf("ExemplarValue: %v\n", n.ExemplarValue)
+		}
 		fmt.Printf("DataQuantity: %v\n", n.DataQuantity)
 		fmt.Printf("Loss: %v\n", n.Loss)
 		fmt.Printf("ContextK: %v\n", n.ContextK)
-		fmt.Printf("InnerRegionPrefix: %v\n", n.InnerRegionPrefix)
+		if n.InnerRegionPrefix.Valid {
+			decodedInnerRegionPrefix, err := decode.DecodePath(db, n.InnerRegionPrefix.String)
+			if err != nil {
+				decodedInnerRegionPrefix = "<decoding failed>"
+			}
+			fmt.Printf("InnerRegionPrefix: %s (%s)\n", n.InnerRegionPrefix.String, decodedInnerRegionPrefix)
+		} else {
+			fmt.Printf("InnerRegionPrefix: %v\n", n.InnerRegionPrefix)
+		}
 		fmt.Printf("InnerRegionNodeID: %v\n", n.InnerRegionNodeID)
 		fmt.Printf("OuterRegionNodeID: %v\n", n.OuterRegionNodeID)
 		fmt.Printf("WhenCreated: %v\n", n.WhenCreated)
