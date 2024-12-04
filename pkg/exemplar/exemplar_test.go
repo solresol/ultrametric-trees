@@ -254,7 +254,34 @@ func TestMostUrgentToImprove(t *testing.T) {
 	_, err = db.Exec("DELETE FROM nodes")
 	if err != nil {
 		t.Fatalf("Error deleting nodes: %v", err)
-	}
+		// New tests for RowID and TargetWord validation
+	t.Run("TestLoadRowsRowIDAndTargetWord", func(t *testing.T) {
+		// TODO: Write test to verify RowID and TargetWord are loaded correctly by LoadRows
+		t.Error("Test not implemented")
+	})
+
+	t.Run("TestLoadContextNRowIDAndTargetWord", func(t *testing.T) {
+		// TODO: Write test to confirm correct handling of RowID and TargetWord in LoadContextNWithinNode
+		t.Error("Test not implemented")
+	})
+
+	t.Run("TestCalculateCostTargetWord", func(t *testing.T) {
+		// TODO: Write tests for CalculateCost to verify calculations involving TargetWord
+		t.Error("Test not implemented")
+	})
+
+	t.Run("TestFindBestExemplarRowIDAndTargetWord", func(t *testing.T) {
+		// TODO: Write tests for FindBestExemplar that assess RowID and TargetWord in the selection logic
+		t.Error("Test not implemented")
+	})
+
+	t.Run("TestUpdateNodeIDsRowID", func(t *testing.T) {
+		// TODO: Write tests to ensure UpdateNodeIDs updates using RowID correctly
+		t.Error("Test not implemented")
+	})
+
+	// Close package scope
+}
 
 	n, _, err := MostUrgentToImprove(db, "nodes", 0)
 	if err != nil {
