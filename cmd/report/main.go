@@ -24,6 +24,7 @@ type AnalysisResult struct {
 	SumLoss         float64
 	NodeCount       int
 	AvgDataQuantity float64
+	TrainingDataSize int
 }
 
 func main() {
@@ -75,27 +76,29 @@ func analyzeNodes(nodes []node.Node) []AnalysisResult {
 }
 
 func calculateResult(nodes []node.Node, timestamp time.Time) AnalysisResult {
-	var sumLoss float64
-	var sumDataQuantity int64
-	var validDataQuantityCount int64
+	sumLoss := 0.0
+	sumDataQuantity := 0
+	leafNodeCount := 0
 	for _, n := range nodes {
+		if n.HasChildren {
+			continue
+		}
 		if n.Loss.Valid {
 			sumLoss += n.Loss.Float64
 		}
+		// 
 		if n.DataQuantity.Valid {
-			sumDataQuantity += n.DataQuantity.Int64
-			validDataQuantityCount++
+			sumDataQuantity += int(n.DataQuantity.Int64)
+			leafNodeCount++
 		}
 	}
-	avgDataQuantity := float64(sumDataQuantity) / float64(validDataQuantityCount)
-	if validDataQuantityCount == 0 {
-		avgDataQuantity = 0
-	}
+	avgDataQuantity := float64(sumDataQuantity) / float64(leafNodeCount)
 	return AnalysisResult{
 		Timestamp:       timestamp,
 		SumLoss:         sumLoss,
 		NodeCount:       len(nodes),
 		AvgDataQuantity: avgDataQuantity,
+		TrainingDataSize: sumDataQuantity,
 	}
 }
 
@@ -103,7 +106,7 @@ func outputCSV(results []AnalysisResult) {
 	w := csv.NewWriter(os.Stdout)
 	defer w.Flush()
 
-	w.Write([]string{"Timestamp", "Sum of Losses", "Number of Nodes", "Average Data Quantity"})
+	w.Write([]string{"Timestamp", "Sum of Losses", "Number of Nodes", "Average Data Quantity", "Training Data Size"})
 
 	for _, r := range results {
 		w.Write([]string{
@@ -111,6 +114,7 @@ func outputCSV(results []AnalysisResult) {
 			fmt.Sprintf("%f", r.SumLoss),
 			fmt.Sprintf("%d", r.NodeCount),
 			fmt.Sprintf("%f", r.AvgDataQuantity),
+			fmt.Sprintf("%d", r.TrainingDataSize),
 		})
 	}
 }
