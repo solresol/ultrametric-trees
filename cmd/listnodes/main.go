@@ -31,10 +31,10 @@ func main() {
 	}
 	defer db.Close()
 
-	var nodes []node.Node
+	var dataFrameRows []exemplar.DataFrameRow
 	if *nodeId != 0 {
-		nodes, err = exemplar.LoadRows(db, *tableName, "node_id", *nodeId)
-		if err != nil || len(nodes) == 0 {
+		dataFrameRows, err = exemplar.LoadRows(db, *tableName, "node_id", exemplar.NodeID(*nodeId))
+		if err != nil || len(dataFrameRows) == 0 {
 			log.Fatalf("Node with ID %d not found or error occurred: %v", *nodeId, err)
 		}
 	} else if *timeStr != "" {
@@ -72,6 +72,14 @@ func main() {
 			decodedInnerRegionPrefix, err := decode.DecodePath(db, n.InnerRegionPrefix.String)
 			if err != nil {
 				decodedInnerRegionPrefix = "<decoding failed>"
+		}
+
+		nodes = make([]node.Node, len(dataFrameRows))
+		for i, row := range dataFrameRows {
+			nodes[i] = node.Node{
+				ID: row.RowID,
+				// Add additional field mappings if necessary
+			}
 			}
 			fmt.Printf("InnerRegionPrefix: %s (%s)\n", n.InnerRegionPrefix.String, decodedInnerRegionPrefix)
 		} else {
