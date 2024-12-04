@@ -120,8 +120,8 @@ func FetchNodesAsOf(db *sql.DB, tableName string, timestamp time.Time) ([]Node, 
 		if node.WhenCreated.After(timestamp) {
 			continue
 		}
-		if !node.WhenChildrenPopulated.Valid {
-			// Then it has non children, but it was created before the timestamp
+		if !node.HasChildren {
+			// Then it has no children, but it was created before the timestamp
 			// It's perfect as is
 			nodes = append(nodes, node)
 			continue
