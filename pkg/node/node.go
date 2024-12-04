@@ -1,6 +1,6 @@
 package node
 
-import "github.com/solresol/ultrametric-trees/pkg/exemplar"
+import "github.com/solresol/ultrametric-trees/pkg/shared"
 
 import (
 	"database/sql"
@@ -18,7 +18,7 @@ import "github.com/solresol/ultrametric-trees/pkg/exemplar"
 
 type Node struct {
 	RowID      int
-	TargetWord exemplar.Synsetpath
+	TargetWord shared.Synsetpath
 	ID                    int
 	ExemplarValue         sql.NullString
 	DataQuantity          sql.NullInt64
