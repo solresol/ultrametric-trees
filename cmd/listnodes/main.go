@@ -16,6 +16,7 @@ func main() {
 	database := flag.String("database", "", "SQLite database file")
 	tableName := flag.String("tablename", "nodes", "Table name for nodes")
 	timeStr := flag.String("time", "", "Optional timestamp to filter nodes")
+	nodeId := flag.Int("node-id", 0, "Node ID to filter")
 
 	flag.Parse()
 
@@ -30,7 +31,12 @@ func main() {
 	defer db.Close()
 
 	var nodes []node.Node
-	if *timeStr != "" {
+	if *nodeId != 0 {
+		nodes, err = exemplar.LoadRows(db, *tableName, "nodebucket", exemplar.NodeID(*nodeId))
+		if err != nil || len(nodes) == 0 {
+			log.Fatalf("Node with ID %d not found or error occurred: %v", *nodeId, err)
+		}
+	} else if *timeStr != "" {
 		timestamp, err := time.Parse(time.RFC3339, *timeStr)
 		if err != nil {
 			log.Fatalf("Invalid time format: %v", err)
@@ -44,7 +50,10 @@ func main() {
 		log.Fatalf("Error fetching nodes: %v", err)
 	}
 
-	for _, n := range nodes {
+	for i, n := range nodes {
+		if *nodeId != 0 && i > 0 {
+			break
+		}
 		fmt.Printf("ID: %d\n", n.ID)
 		if n.ExemplarValue.Valid {
 			decodedExemplarValue, err := decode.DecodePath(db, n.ExemplarValue.String)
