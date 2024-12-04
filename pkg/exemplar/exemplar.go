@@ -1,5 +1,9 @@
 package exemplar
 
+type NodeID int
+
+const RootNodeID NodeID = 1
+
 import (
 	"github.com/solresol/ultrametric-trees/pkg/node"
 	"database/sql"
@@ -323,5 +327,6 @@ func MostUrgentToImprove(db *sql.DB, nodesTable string, minSizeToConsider int) (
 		return 0, 0, fmt.Errorf("error finding most urgent node to improve: %v", err)
 	}
 
-	return NodeID(id), loss, nil
+	return node.NodeID(id), loss, nil
 }
+const NoNodeID node.NodeID = -1
