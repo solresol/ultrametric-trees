@@ -2,6 +2,7 @@ package exemplar
 
 import (
 	"database/sql"
+	"github.com/solresol/ultrametric-trees/pkg/node"
 	"fmt"
 	"math"
 	"math/rand"
@@ -47,7 +48,7 @@ func (sp Synsetpath) String() string {
 	return strings.Join(parts, ".")
 }
 
-func LoadRows(db *sql.DB, dataframeTable string, nodeBucketTable string, nodeID int) ([]node.Node, error) {
+func LoadRows(db *sql.DB, dataframeTable string, nodeBucketTable string, nodeID int) ([]node.DataFrameRow, error) {
 	query := fmt.Sprintf("SELECT id, targetword FROM %s JOIN %s USING (id) WHERE node_id = ? order by id", dataframeTable, nodeBucketTable)
 
 	rows, err := db.Query(query, nodeID)
@@ -56,9 +57,9 @@ func LoadRows(db *sql.DB, dataframeTable string, nodeBucketTable string, nodeID 
 	}
 	defer rows.Close()
 
-	var result []node.Node
+	var result []node.DataFrameRow
 	for rows.Next() {
-		var r node.Node
+		var r node.DataFrameRow
 		var targetWordStr string
 		if err := rows.Scan(&r.RowID, &targetWordStr); err != nil {
 			return nil, err
@@ -76,7 +77,7 @@ return result, nil
 
 // LoadContextNWithinNode is basically the same as LoadRows, except that instead of selecting targetword, it will be selecting contextk and filtering on nodeID. It returns an array, which has to be in the same order as LoadRows returns it (i.e. both should be sorted by ID).
 
-func LoadContextNWithinNode(db *sql.DB, dataframeTable string, nodeBucketTable string, nodeID int, k int, contextLength int) ([]node.Node, error) {
+func LoadContextNWithinNode(db *sql.DB, dataframeTable string, nodeBucketTable string, nodeID int, k int, contextLength int) ([]node.DataFrameRow, error) {
 	if k < 1 || k > contextLength {
 		return nil, fmt.Errorf("k must be between 1 and %d", contextLength)
 	}
@@ -89,9 +90,9 @@ func LoadContextNWithinNode(db *sql.DB, dataframeTable string, nodeBucketTable s
 	}
 	defer rows.Close()
 
-	var result []node.Node
+	var result []node.DataFrameRow
 	for rows.Next() {
-		var r node.Node
+		var r node.DataFrameRow
 		var contextWordStr string
 		if err := rows.Scan(&r.RowID, &contextWordStr); err != nil {
 			return nil, err
@@ -226,7 +227,7 @@ func UpdateNodeIDs(tx *sql.Tx, table string, rowIDs []int, newNodeID NodeID) err
 	if len(rowIDs) < 1000 {
 		placeholders := make([]string, len(rowIDs))
 		args := make([]interface{}, len(rowIDs)+1)
-		args[0] = newNodeID
+		args[0] = int64(newNodeID)
 		for i, id := range rowIDs {
 			placeholders[i] = "?"
 			args[i+1] = id
@@ -257,7 +258,7 @@ func UpdateNodeIDs(tx *sql.Tx, table string, rowIDs []int, newNodeID NodeID) err
 	}
 
 	query := fmt.Sprintf("UPDATE %s SET node_id = ? WHERE id IN (SELECT id FROM temp_ids)", table)
-	_, err = tx.Exec(query, newNodeID)
+	_, err = tx.Exec(query, int64(newNodeID))
 	if err != nil {
 		return err
 	}
