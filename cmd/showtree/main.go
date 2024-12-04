@@ -35,17 +35,15 @@ func main() {
 	}
 	defer db.Close()
 
-	nodes, err := node.FetchNodes(db, *tableName)
-	if err != nil {
-		log.Fatalf("Error fetching nodes: %v", err)
-	}
-
 	t, err := time.Parse("2006-01-02 15:04:05", *timestamp)
 	if err != nil {
 		log.Fatalf("Error parsing timestamp: %v", err)
 	}
 
-	activeNodes := node.FilterNodes(nodes, t, true)
+	activeNodes, err := node.FetchNodesAsOf(db, *tableName, t)
+	if err != nil {
+		log.Fatalf("Error fetching filtered nodes: %v", err)
+	}
 	err = displayTree(db, activeNodes)
 	if err != nil {
 		log.Fatalf("Could not displayTree: %v", err)
