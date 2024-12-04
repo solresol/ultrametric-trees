@@ -76,7 +76,7 @@ func main() {
 			decodedInnerRegionPrefix, err := decode.DecodePath(db, n.InnerRegionPrefix.String)
 			if err != nil {
 				decodedInnerRegionPrefix = "<decoding failed>"
-func convertDataFrameRowsToNodes(dataFrameRows []exemplar.DataFrameRow) []node.Node {
+func convertDataFrameRowsToNodes(dataFrameRows []exemplar.DataFrameRow) ([]node.Node, error) {
 	var nodes []node.Node
 	for _, row := range dataFrameRows {
 		nodes = append(nodes, node.Node{
