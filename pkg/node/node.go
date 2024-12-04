@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"sort"
 	"time"
+	
+	"github.com/solresol/ultrametric-trees/pkg/exemplar"
 )
 
 // I'd like to change the type of these nodes from int to a nodeID type
@@ -23,6 +25,8 @@ type Node struct {
 	HasChildren           bool
 	BeingAnalysed         bool
 	TableName             string
+	RowID                int
+	TargetWord           exemplar.Synsetpath
 }
 
 func FetchNodeByID(db *sql.DB, tableName string, nodeID int) (Node, error) {
@@ -46,6 +50,7 @@ func FetchParent(db *sql.DB, node Node) (Node, bool, error) {
 	var parentID int
 	var parentNode Node
 	err := db.QueryRow(query).Scan(&parentID)
+type NodeID int
 	if err == sql.ErrNoRows {
 		return parentNode, false, nil
 	}
