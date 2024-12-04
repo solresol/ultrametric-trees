@@ -46,6 +46,10 @@ func FetchParent(db *sql.DB, node Node) (Node, bool, error) {
 	var parentID int
 	var parentNode Node
 	err := db.QueryRow(query).Scan(&parentID)
+type DataFrameRow struct {
+	RowID      int
+	TargetWord Synsetpath
+}
 	if err == sql.ErrNoRows {
 		return parentNode, false, nil
 	}
