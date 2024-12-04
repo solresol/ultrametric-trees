@@ -47,7 +47,7 @@ func (sp Synsetpath) String() string {
 	return strings.Join(parts, ".")
 }
 
-func LoadRows(db *sql.DB, dataframeTable string, nodeBucketTable string, nodeID NodeID) ([]DataFrameRow, error) {
+func LoadRows(db *sql.DB, dataframeTable string, nodeBucketTable string, nodeID int) ([]node.Node, error) {
 	query := fmt.Sprintf("SELECT id, targetword FROM %s JOIN %s USING (id) WHERE node_id = ? order by id", dataframeTable, nodeBucketTable)
 
 	rows, err := db.Query(query, nodeID)
@@ -56,9 +56,9 @@ func LoadRows(db *sql.DB, dataframeTable string, nodeBucketTable string, nodeID 
 	}
 	defer rows.Close()
 
-	var result []DataFrameRow
+	var result []node.Node
 	for rows.Next() {
-		var r DataFrameRow
+		var r node.Node
 		var targetWordStr string
 		if err := rows.Scan(&r.RowID, &targetWordStr); err != nil {
 			return nil, err
@@ -70,12 +70,13 @@ func LoadRows(db *sql.DB, dataframeTable string, nodeBucketTable string, nodeID 
 		r.TargetWord = synsetpath
 		result = append(result, r)
 	}
-	return result, nil
+	// Conversion from DataFrameRow to node.Node already done above
+return result, nil
 }
 
 // LoadContextNWithinNode is basically the same as LoadRows, except that instead of selecting targetword, it will be selecting contextk and filtering on nodeID. It returns an array, which has to be in the same order as LoadRows returns it (i.e. both should be sorted by ID).
 
-func LoadContextNWithinNode(db *sql.DB, dataframeTable string, nodeBucketTable string, nodeID NodeID, k int, contextLength int) ([]DataFrameRow, error) {
+func LoadContextNWithinNode(db *sql.DB, dataframeTable string, nodeBucketTable string, nodeID int, k int, contextLength int) ([]node.Node, error) {
 	if k < 1 || k > contextLength {
 		return nil, fmt.Errorf("k must be between 1 and %d", contextLength)
 	}
@@ -88,9 +89,9 @@ func LoadContextNWithinNode(db *sql.DB, dataframeTable string, nodeBucketTable s
 	}
 	defer rows.Close()
 
-	var result []DataFrameRow
+	var result []node.Node
 	for rows.Next() {
-		var r DataFrameRow
+		var r node.Node
 		var contextWordStr string
 		if err := rows.Scan(&r.RowID, &contextWordStr); err != nil {
 			return nil, err
@@ -102,7 +103,8 @@ func LoadContextNWithinNode(db *sql.DB, dataframeTable string, nodeBucketTable s
 		r.TargetWord = synsetpath
 		result = append(result, r)
 	}
-	return result, nil
+	// Conversion from DataFrameRow to node.Node already done above
+return result, nil
 }
 
 // GetAllPossibleSynsets returns all possible synsets and synset
