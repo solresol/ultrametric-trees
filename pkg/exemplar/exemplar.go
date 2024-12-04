@@ -61,7 +61,7 @@ func LoadRows(db *sql.DB, dataframeTable string, nodeBucketTable string, nodeID 
 	for rows.Next() {
 		var r node.Node
 		var targetWordStr string
-		if err := rows.Scan(&r.RowID, &targetWordStr); err != nil {
+		if err := rows.Scan(&r.ID, &targetWordStr); err != nil {
 			return nil, err
 		}
 		synsetpath, err := ParseSynsetpath(targetWordStr)
@@ -94,7 +94,7 @@ func LoadContextNWithinNode(db *sql.DB, dataframeTable string, nodeBucketTable s
 	for rows.Next() {
 		var r node.Node
 		var contextWordStr string
-		if err := rows.Scan(&r.RowID, &contextWordStr); err != nil {
+		if err := rows.Scan(&r.ID, &contextWordStr); err != nil {
 			return nil, err
 		}
 		synsetpath, err := ParseSynsetpath(contextWordStr)
