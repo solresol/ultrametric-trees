@@ -13,8 +13,8 @@ import (
 
 	_ "github.com/mattn/go-sqlite3"
 	"github.com/solresol/ultrametric-trees/pkg/decode"
+	"github.com/solresol/ultrametric-trees/pkg/common"
 	"github.com/solresol/ultrametric-trees/pkg/exemplar"
-	"github.com/solresol/ultrametric-trees/pkg/node"
 )
 
 // Initialises a table of node-mapping-to-row with
@@ -473,7 +473,7 @@ func main() {
 		if err != nil {
 			log.Fatalf("Could not find the most urgent node to work ing: %v", err)
 		}
-		if nextNodeID == exemplar.NoNodeID {
+		if nextNodeID == common.NoNodeID {
 			log.Printf("Training is complete")
 			return
 		}
