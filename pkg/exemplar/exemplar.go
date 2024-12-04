@@ -102,12 +102,6 @@ func LoadContextNWithinNode(db *sql.DB, dataframeTable string, nodeBucketTable s
 	for rows.Next() {
 		var r DataFrameRow
 		var contextWordStr string
-func ConvertDataFrameRowToNode(row DataFrameRow) node.Node {
-	return node.Node{
-		ID: row.RowID,
-		// Add additional field mappings if necessary
-	}
-}
 		if err := rows.Scan(&r.RowID, &contextWordStr); err != nil {
 			return nil, err
 		}
@@ -140,6 +134,12 @@ func GetAllPossibleSynsets(rows []DataFrameRow) []Synsetpath {
 
 	result := make([]Synsetpath, 0, len(synsetMap))
 	for _, synset := range synsetMap {
+func ConvertDataFrameRowToNode(row DataFrameRow) node.Node {
+	return node.Node{
+		ID: row.RowID,
+		// Add additional field mappings if necessary
+	}
+}
 		result = append(result, synset)
 	}
 
