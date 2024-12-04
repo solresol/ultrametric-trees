@@ -48,7 +48,7 @@ func (sp Synsetpath) String() string {
 	return strings.Join(parts, ".")
 }
 
-func LoadRows(db *sql.DB, dataframeTable string, nodeBucketTable string, nodeID int) ([]node.Node, error) {
+func LoadRows(db *sql.DB, dataframeTable string, nodeBucketTable string, nodeID int) ([]DataFrameRow, error) {
 	query := fmt.Sprintf("SELECT id, targetword FROM %s JOIN %s USING (id) WHERE node_id = ? order by id", dataframeTable, nodeBucketTable)
 
 	rows, err := db.Query(query, nodeID)
