@@ -20,3 +20,4 @@ require (
 	gonum.org/v1/plot v0.14.0 // indirect
 	github.com/solresol/ultrametric-trees/pkg/node v0.0.0
 )
+	github.com/solresol/ultrametric-trees/pkg/decode v0.0.0
