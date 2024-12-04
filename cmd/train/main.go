@@ -14,7 +14,7 @@ import (
 	_ "github.com/mattn/go-sqlite3"
 	"github.com/solresol/ultrametric-trees/pkg/decode"
 	"github.com/solresol/ultrametric-trees/pkg/exemplar"
-	"github.com/solresol/ultrametric-trees/pkg/node"
+	// "github.com/solresol/ultrametric-trees/pkg/node"
 )
 
 // Initialises a table of node-mapping-to-row with
