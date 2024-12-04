@@ -92,7 +92,7 @@ func LoadContextNWithinNode(db *sql.DB, dataframeTable string, nodeBucketTable s
 
 	var result []DataFrameRow
 	for rows.Next() {
-		var r node.Node
+		var r DataFrameRow
 		var contextWordStr string
 		if err := rows.Scan(&r.RowID, &contextWordStr); err != nil {
 			return nil, err
@@ -102,7 +102,7 @@ func LoadContextNWithinNode(db *sql.DB, dataframeTable string, nodeBucketTable s
 			return nil, fmt.Errorf("error parsing synsetpath for row %d: %v", r.RowID, err)
 		}
 		r.TargetWord = synsetpath
-		result = append(result, r)
+		result = append(result, DataFrameRow{RowID: r.ID, TargetWord: synsetpath})
 	}
 	// Conversion from DataFrameRow to node.Node already done above
 return result, nil
