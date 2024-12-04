@@ -59,7 +59,7 @@ func LoadRows(db *sql.DB, dataframeTable string, nodeBucketTable string, nodeID 
 
 	var result []DataFrameRow
 	for rows.Next() {
-		var r node.Node
+		var r DataFrameRow
 		var targetWordStr string
 		if err := rows.Scan(&r.RowID, &targetWordStr); err != nil {
 			return nil, err
