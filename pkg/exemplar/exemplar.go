@@ -47,7 +47,7 @@ func (sp Synsetpath) String() string {
 	return strings.Join(parts, ".")
 }
 
-func LoadRows(db *sql.DB, dataframeTable string, nodeBucketTable string, nodeID NodeID) ([]DataFrameRow, error) {
+func LoadRows(db *sql.DB, dataframeTable string, nodeBucketTable string, nodeID NodeID) ([]node.Node, error) {
 	query := fmt.Sprintf("SELECT id, targetword FROM %s JOIN %s USING (id) WHERE node_id = ? order by id", dataframeTable, nodeBucketTable)
 
 	rows, err := db.Query(query, nodeID)
@@ -56,9 +56,19 @@ func LoadRows(db *sql.DB, dataframeTable string, nodeBucketTable string, nodeID 
 	}
 	defer rows.Close()
 
-	var result []DataFrameRow
+	var result []node.Node
 	for rows.Next() {
-		var r DataFrameRow
+		var r node.Node
+		var targetWordStr string
+		if err := rows.Scan(&r.ID, &targetWordStr); err != nil {
+			return nil, err
+		}
+		synsetpath, err := ParseSynsetpath(targetWordStr)
+		if err != nil {
+			return nil, fmt.Errorf("error parsing synsetpath for row %d: %v", r.ID, err)
+		}
+		// Assuming node.Node has a field to store Synsetpath or similar
+		// r.SomeField = synsetpath
 		var targetWordStr string
 		if err := rows.Scan(&r.RowID, &targetWordStr); err != nil {
 			return nil, err
@@ -92,6 +102,12 @@ func LoadContextNWithinNode(db *sql.DB, dataframeTable string, nodeBucketTable s
 	for rows.Next() {
 		var r DataFrameRow
 		var contextWordStr string
+func ConvertDataFrameRowToNode(row DataFrameRow) node.Node {
+	return node.Node{
+		ID: row.RowID,
+		// Add additional field mappings if necessary
+	}
+}
 		if err := rows.Scan(&r.RowID, &contextWordStr); err != nil {
 			return nil, err
 		}
