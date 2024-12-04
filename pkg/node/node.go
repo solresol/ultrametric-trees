@@ -1,6 +1,7 @@
 package node
 
 import (
+	"github.com/solresol/ultrametric-trees/pkg/exemplar"
 	"database/sql"
 	"fmt"
 	"sort"
