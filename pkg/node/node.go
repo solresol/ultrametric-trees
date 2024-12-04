@@ -1,6 +1,6 @@
 package node
 
-import "github.com/solresol/ultrametric-trees/pkg/exemplar"
+
 
 import (
 	"database/sql"
@@ -9,16 +9,24 @@ import (
 	"time"
 )
 
-import "github.com/solresol/ultrametric-trees/pkg/exemplar"
+
 
 // NodeID is a type alias for int
  type NodeID int
 
 // Node represents a node in the decision tree
 
+type Synsetpath struct {
+	Path []int
+}
+
+func ParseSynsetpath(s string) (Synsetpath, error) {
+	// Implementation details go here...
+}
+
 type Node struct {
 	RowID      int
-	TargetWord exemplar.Synsetpath
+	TargetWord Synsetpath
 	ID                    int
 	ExemplarValue         sql.NullString
 	DataQuantity          sql.NullInt64
