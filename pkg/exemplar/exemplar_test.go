@@ -264,3 +264,68 @@ func TestMostUrgentToImprove(t *testing.T) {
 		t.Errorf("MostUrgentToImprove with empty table did not return %d", NoNodeID)
 	}
 }
+func TestLoadRows(t *testing.T) {
+	db, err := sql.Open("sqlite3", ":memory:")
+	if err != nil {
+		t.Fatalf("Error opening database: %v", err)
+	}
+	defer db.Close()
+
+	// Create test tables
+	_, err = db.Exec(`
+		CREATE TABLE dataframe (id INTEGER PRIMARY KEY, targetword TEXT);
+		CREATE TABLE nodebucket (id INTEGER PRIMARY KEY, node_id INTEGER);
+		INSERT INTO dataframe (id, targetword) VALUES (1, '1.2.3'), (2, '4.5.6'), (3, 'invalid');
+		INSERT INTO nodebucket (id, node_id) VALUES (1, 1), (2, 1), (3, 1);
+	`)
+	if err != nil {
+		t.Fatalf("Error creating test tables: %v", err)
+	}
+
+	tests := []struct {
+		name           string
+		nodeID         NodeID
+		expectedRows   []DataFrameRow
+		expectError    bool
+	}{
+		{
+			name:   "Valid rows",
+			nodeID: 1,
+			expectedRows: []DataFrameRow{
+				{RowID: 1, TargetWord: Synsetpath{Path: []int{1, 2, 3}}},
+				{RowID: 2, TargetWord: Synsetpath{Path: []int{4, 5, 6}}},
+			},
+			expectError: false,
+		},
+		{
+			name:        "Invalid synsetpath",
+			nodeID:      1,
+			expectedRows: nil,
+			expectError: true,
+		},
+		{
+			name:        "No matching rows",
+			nodeID:      2,
+			expectedRows: []DataFrameRow{},
+			expectError: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			rows, err := LoadRows(db, "dataframe", "nodebucket", tt.nodeID)
+			if tt.expectError {
+				if err == nil {
+					t.Errorf("Expected an error, but got none")
+				}
+			} else {
+				if err != nil {
+					t.Fatalf("LoadRows returned unexpected error: %v", err)
+				}
+				if !reflect.DeepEqual(rows, tt.expectedRows) {
+					t.Errorf("LoadRows returned %v, want %v", rows, tt.expectedRows)
+				}
+			}
+		})
+	}
+}
