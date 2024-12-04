@@ -10,10 +10,6 @@ import (
 	"strings"
 )
 
-type NodeID int
-
-const RootNodeID NodeID = 1
-const NoNodeID NodeID = -1
 
 type Synsetpath struct {
 	Path []int
