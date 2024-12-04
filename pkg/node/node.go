@@ -1,11 +1,15 @@
 package node
 
+import "github.com/solresol/ultrametric-trees/pkg/exemplar"
+
 import (
 	"database/sql"
 	"fmt"
 	"sort"
 	"time"
 )
+
+import "github.com/solresol/ultrametric-trees/pkg/exemplar"
 
 // NodeID is a type alias for int
  type NodeID int
