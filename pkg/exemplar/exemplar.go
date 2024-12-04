@@ -1,6 +1,7 @@
 package exemplar
 
 import (
+	"github.com/solresol/ultrametric-trees/pkg/node"
 	"database/sql"
 	"fmt"
 	"math"
@@ -47,7 +48,7 @@ func (sp Synsetpath) String() string {
 	return strings.Join(parts, ".")
 }
 
-func LoadRows(db *sql.DB, dataframeTable string, nodeBucketTable string, nodeID int) ([]node.Node, error) {
+func LoadRows(db *sql.DB, dataframeTable string, nodeBucketTable string, nodeID NodeID) ([]DataFrameRow, error) {
 	query := fmt.Sprintf("SELECT id, targetword FROM %s JOIN %s USING (id) WHERE node_id = ? order by id", dataframeTable, nodeBucketTable)
 
 	rows, err := db.Query(query, nodeID)
@@ -56,7 +57,7 @@ func LoadRows(db *sql.DB, dataframeTable string, nodeBucketTable string, nodeID 
 	}
 	defer rows.Close()
 
-	var result []node.Node
+	var result []DataFrameRow
 	for rows.Next() {
 		var r node.Node
 		var targetWordStr string
@@ -76,7 +77,7 @@ return result, nil
 
 // LoadContextNWithinNode is basically the same as LoadRows, except that instead of selecting targetword, it will be selecting contextk and filtering on nodeID. It returns an array, which has to be in the same order as LoadRows returns it (i.e. both should be sorted by ID).
 
-func LoadContextNWithinNode(db *sql.DB, dataframeTable string, nodeBucketTable string, nodeID int, k int, contextLength int) ([]node.Node, error) {
+func LoadContextNWithinNode(db *sql.DB, dataframeTable string, nodeBucketTable string, nodeID NodeID, k int, contextLength int) ([]DataFrameRow, error) {
 	if k < 1 || k > contextLength {
 		return nil, fmt.Errorf("k must be between 1 and %d", contextLength)
 	}
@@ -89,7 +90,7 @@ func LoadContextNWithinNode(db *sql.DB, dataframeTable string, nodeBucketTable s
 	}
 	defer rows.Close()
 
-	var result []node.Node
+	var result []DataFrameRow
 	for rows.Next() {
 		var r node.Node
 		var contextWordStr string
