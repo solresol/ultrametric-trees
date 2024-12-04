@@ -18,5 +18,6 @@ require (
 	golang.org/x/image v0.11.0 // indirect
 	golang.org/x/text v0.12.0 // indirect
 	gonum.org/v1/plot v0.14.0 // indirect
+	github.com/solresol/ultrametric-trees/pkg/decode v0.0.0
 	github.com/solresol/ultrametric-trees/pkg/node v0.0.0
 )
