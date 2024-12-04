@@ -7,9 +7,14 @@ import (
 	"time"
 )
 
-// I'd like to change the type of these nodes from int to a nodeID type
+// NodeID is a type alias for int
+ type NodeID int
+
+// Node represents a node in the decision tree
 
 type Node struct {
+	RowID      int
+	TargetWord exemplar.Synsetpath
 	ID                    int
 	ExemplarValue         sql.NullString
 	DataQuantity          sql.NullInt64
