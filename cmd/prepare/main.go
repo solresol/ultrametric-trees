@@ -119,10 +119,15 @@ func main() {
 	modulo := flag.Int("modulo", 0, "Modulo for story selection")
 	congruent := flag.Int("congruent", 0, "Congruent value for story selection")
 	outputTable := flag.String("output-table", "training_data", "Name of the output table for training data")
+	outputChoice := flag.String("output-choice", "paths", "Whether to output paths (the experiment) or words (the baseline). Defaults to paths")
 	flag.Parse()
 
 	if *inputDB == "" || *outputDB == "" {
 		log.Fatal("Both --input-database and --output-database are required")
+	}
+
+	if *outputChoice != "paths" && *outputChoice != "words" {
+		log.Fatal("Error: --use must be either 'paths' or 'words'.")
 	}
 
 	inputConn, err := sql.Open("sqlite3", *inputDB)
@@ -161,7 +166,7 @@ func main() {
 		}
 		storyID := storyIteration.StoryID
 		processedCount++
-		newlyAdded, newOverlaps, err := processStory(inputConn, outputConn, storyID, *contextLength, *outputTable)
+		newlyAdded, newOverlaps, err := processStory(inputConn, outputConn, storyID, *contextLength, *outputTable, *outputChoice == "paths")
 		newRecordCount += newlyAdded
 		overlapRecordCount += newOverlaps
 		if err != nil {
@@ -295,7 +300,7 @@ func getStories(db *sql.DB, modulo, congruent int) (<-chan StoryIteration, error
 	return storyChannel, nil
 }
 
-func processStory(inputDB, outputDB *sql.DB, storyID, contextLength int, outputTable string) (int, int, error) {
+func processStory(inputDB, outputDB *sql.DB, storyID, contextLength int, outputTable string, usePaths bool) (int, int, error) {
 	log.Printf("Processing story %d with context length %d into %s", storyID, contextLength, outputTable)
 	words, annotationCount, err := getWordsForStory(inputDB, storyID)
 	if err != nil {
@@ -360,7 +365,7 @@ func processStory(inputDB, outputDB *sql.DB, storyID, contextLength int, outputT
 		// that are shorter than the contextLength (the beginning of a story
 		// for example).
 		if len(buffer) == contextLength+1 {
-			existsAlready, err := insertTrainingData(outputDB, buffer, contextLength, outputTable)
+			existsAlready, err := insertTrainingData(outputDB, buffer, contextLength, outputTable, usePaths)
 			if err != nil {
 				return newlyAddedData, overlapSize, fmt.Errorf("Could not insert training data for word ID = %d (%s): %v",
 					word.WordID, word.Word, err)
@@ -377,7 +382,7 @@ func processStory(inputDB, outputDB *sql.DB, storyID, contextLength int, outputT
 	//log.Printf("Appending endOfText marker. Buffer length is %d", len(buffer))
 	buffer = append(buffer, endOfText)
 	if len(buffer) == contextLength+1 {
-		existsAlready, err := insertTrainingData(outputDB, buffer, contextLength, outputTable)
+		existsAlready, err := insertTrainingData(outputDB, buffer, contextLength, outputTable, usePaths)
 		if err != nil {
 			return newlyAddedData, overlapSize, fmt.Errorf("Could not insert the end of text marker on story %d: %v", storyID, err)
 		}
@@ -435,7 +440,7 @@ func getWordsForStory(db *sql.DB, storyID int) ([]WordData, int, error) {
 	return words, annotationCount, nil
 }
 
-func insertTrainingData(db *sql.DB, buffer []WordData, contextLength int, outputTable string) (bool, error) {
+func insertTrainingData(db *sql.DB, buffer []WordData, contextLength int, outputTable string, usePaths bool) (bool, error) {
 	query := fmt.Sprintf("select count(*) from %s where targetword_id = %d", outputTable, buffer[contextLength].WordID)
 	var numberOfAppearances int
 	err := db.QueryRow(query).Scan(&numberOfAppearances)
@@ -468,7 +473,11 @@ func insertTrainingData(db *sql.DB, buffer []WordData, contextLength int, output
 	args := make([]interface{}, contextLength+2)
 	args[0] = buffer[contextLength].Path
 	for i := 0; i < contextLength; i++ {
-		args[i+1] = buffer[contextLength-1-i].Path
+		if usePaths {
+			args[i+1] = buffer[contextLength-1-i].Path
+		} else {
+			args[i+1] = buffer[contextLength-1-i].Word
+		}
 	}
 	args[contextLength+1] = buffer[contextLength].WordID
 	_, err = tx.Exec(query, args...)

@@ -21,6 +21,19 @@ If your database after running the wordnetify programs is `w2.sqlite` and you wa
 
 `./bin/prepare --input-database w2.sqlite --output-database slm-w2.sqlite`
 
+You will want to run `prepare` 4 times, to create:
+
+- the sense annotated training data
+
+- the sense annotated test data
+
+- the training data without sense annotations
+
+- the test data without sense annotations
+
+`make prepdata` will do this for you
+
+
 ## Train
 
 This creates a dataframe (in a table called `training_data`).

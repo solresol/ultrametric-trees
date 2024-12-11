@@ -1,4 +1,12 @@
-.PHONY: build run test clean dbclean training-docker-image
+SENSE_ANNOTATED_TRAINING_DATA=/tinystories/wordnetify-tinystories/TinyStories.sqlite
+SENSE_ANNOTATED_TEST_DATA=/tinystories/wordnetify-tinystories/w2.sqlite
+
+#SENSE_ANNOTATED_TRAINING_DATA=tiny.sqlite
+#SENSE_ANNOTATED_TEST_DATA=w2.sqlite
+
+######################################################################
+
+.PHONY: build run test clean dbclean training-docker-image prepdata
 
 build: bin/prepare bin/train bin/report bin/showtree bin/validation bin/listnodes
 	echo All built
@@ -21,11 +29,27 @@ bin/validation: cmd/validation/main.go pkg/inference/inference.go
 bin/listnodes: cmd/listnodes/main.go
 	go build -o bin/listnodes cmd/listnodes/main.go
 
-slm-w2.sqlite: bin/prepare /tinystories/wordnetify-tinystories/w2.sqlite
-	./bin/prepare --input-database /tinystories/wordnetify-tinystories/w2.sqlite --output-database slm-w2.sqlite
+######################################################################
 
-tiny.sqlite: bin/prepare /tinystories/wordnetify-tinystories/TinyStories.sqlite
-	./bin/prepare --input-database /tinystories/wordnetify-tinystories/TinyStories.sqlite --output-database /ultratree/language-model/tiny.sqlite
+# I copied this to /ultratree/language-model/tiny.sqlite -- not a great name
+sense-annotated-training-dataframes.sqlite: bin/prepare $(SENSE_ANNOTATED_TRAINING_DATA)
+	./bin/prepare --input-database $(SENSE_ANNOTATED_TRAINING_DATA) --output-database sense-annotated-training-dataframes.sqlite
+
+
+unannotated-training-dataframes.sqlite: bin/prepare $(SENSE_ANNOTATED_TRAINING_DATA)
+	./bin/prepare --input-database $(SENSE_ANNOTATED_TRAINING_DATA) --output-database unannotated-training-dataframes.sqlite --output-choice=words
+
+
+# I copied this to /ultratree/language-model/validation.sqlite -- a really terrible name
+sense-annotated-test-dataframes.sqlite: bin/prepare $(SENSE_ANNOTATED_TEST_DATA)
+	./bin/prepare --input-database $(SENSE_ANNOTATED_TEST_DATA) --output-database sense-annotated-test-dataframes.sqlite
+
+
+unannotated-test-dataframes.sqlite: bin/prepare $(SENSE_ANNOTATED_TEST_DATA)
+	./bin/prepare --input-database $(SENSE_ANNOTATED_TEST_DATA) --output-database unannotated-test-dataframes.sqlite --output-choice=words
+
+prepdata: sense-annotated-training-dataframes.sqlite sense-annotated-test-dataframes.sqlite unannotated-test-dataframes.sqlite unannotated-training-dataframes.sqlite
+
 
 training-docker-image: bin/train Dockerfile.train
 	docker build -t ultratree-train -f Dockerfile.train .
@@ -34,8 +58,8 @@ test:
 	go test ./...
 
 clean:
-	rm -rf bin/prepare bin/exemplar
+	rm -rf bin/prepare bin/exemplar bin/train
 
 dbclean:
-	rm -f slm-w2.sqlite
+	rm -f sense-annotated-test-data.sqlite
 
