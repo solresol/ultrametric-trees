@@ -32,23 +32,23 @@ bin/listnodes: cmd/listnodes/main.go
 ######################################################################
 
 # I copied this to /ultratree/language-model/tiny.sqlite -- not a great name
-sense-annotated-training-dataframes.sqlite: bin/prepare $(SENSE_ANNOTATED_TRAINING_DATA)
-	./bin/prepare --input-database $(SENSE_ANNOTATED_TRAINING_DATA) --output-database sense-annotated-training-dataframes.sqlite
+sense-annotated-training-dataframe.sqlite: bin/prepare $(SENSE_ANNOTATED_TRAINING_DATA)
+	./bin/prepare --input-database $(SENSE_ANNOTATED_TRAINING_DATA) --output-database sense-annotated-training-dataframe.sqlite
 
 
-unannotated-training-dataframes.sqlite: bin/prepare $(SENSE_ANNOTATED_TRAINING_DATA)
-	./bin/prepare --input-database $(SENSE_ANNOTATED_TRAINING_DATA) --output-database unannotated-training-dataframes.sqlite --output-choice=words
+unannotated-training-dataframe.sqlite: bin/prepare $(SENSE_ANNOTATED_TRAINING_DATA)
+	./bin/prepare --input-database $(SENSE_ANNOTATED_TRAINING_DATA) --output-database unannotated-training-dataframe.sqlite --output-choice=words
 
 
 # I copied this to /ultratree/language-model/validation.sqlite -- a really terrible name
-sense-annotated-test-dataframes.sqlite: bin/prepare $(SENSE_ANNOTATED_TEST_DATA)
-	./bin/prepare --input-database $(SENSE_ANNOTATED_TEST_DATA) --output-database sense-annotated-test-dataframes.sqlite
+sense-annotated-test-dataframe.sqlite: bin/prepare $(SENSE_ANNOTATED_TEST_DATA)
+	./bin/prepare --input-database $(SENSE_ANNOTATED_TEST_DATA) --output-database sense-annotated-test-dataframe.sqlite
 
 
-unannotated-test-dataframes.sqlite: bin/prepare $(SENSE_ANNOTATED_TEST_DATA)
-	./bin/prepare --input-database $(SENSE_ANNOTATED_TEST_DATA) --output-database unannotated-test-dataframes.sqlite --output-choice=words
+unannotated-test-dataframe.sqlite: bin/prepare $(SENSE_ANNOTATED_TEST_DATA)
+	./bin/prepare --input-database $(SENSE_ANNOTATED_TEST_DATA) --output-database unannotated-test-dataframe.sqlite --output-choice=words
 
-prepdata: sense-annotated-training-dataframes.sqlite sense-annotated-test-dataframes.sqlite unannotated-test-dataframes.sqlite unannotated-training-dataframes.sqlite
+prepdata: sense-annotated-training-dataframe.sqlite sense-annotated-test-dataframe.sqlite unannotated-test-dataframe.sqlite unannotated-training-dataframe.sqlite
 
 
 training-docker-image: bin/train Dockerfile.train
