@@ -1,0 +1,30 @@
+name: Check File Existence
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  check-file:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v2
+
+    - name: Verify TinyStories.sqlite existence
+      run: |
+        FILE_PATH="/correct/path/to/TinyStories.sqlite"
+        if [ ! -f "$FILE_PATH" ]; then
+          echo "Error: The file TinyStories.sqlite does not exist at $FILE_PATH."
+          echo "Please verify the file path or ensure the file is available."
+          echo "If the file is missing, you can obtain it by following the instructions in the project documentation or contacting the project maintainer."
+          exit 1
+        fi
+
+    - name: Run make
+      run: make
