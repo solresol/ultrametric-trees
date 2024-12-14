@@ -11,22 +11,23 @@ SENSE_ANNOTATED_TEST_DATA=/tinystories/wordnetify-tinystories/w2.sqlite
 build: bin/prepare bin/train bin/report bin/showtree bin/validation bin/listnodes sense-annotated-training-dataframe.sqlite unannotated-training-dataframe.sqlite sense-annotated-test-dataframe.sqlite unannotated-test-dataframe.sqlite
 	echo All built
 
-bin/prepare: cmd/prepare/main.go
+bin/prepare: deps cmd/prepare/main.go
 	go build -o bin/prepare cmd/prepare/main.go
-
-bin/train: cmd/train/main.go pkg/exemplar/exemplar.go
+deps:
+	go mod tidy
+bin/train: deps cmd/train/main.go pkg/exemplar/exemplar.go
 	go build -o bin/train cmd/train/main.go
 
-bin/report: cmd/report/main.go
+bin/report: deps cmd/report/main.go
 	go build -o bin/report cmd/report/main.go
 
-bin/showtree: cmd/showtree/main.go
+bin/showtree: deps cmd/showtree/main.go
 	go build -o bin/showtree cmd/showtree/main.go
 
-bin/validation: cmd/validation/main.go pkg/inference/inference.go
+bin/validation: deps cmd/validation/main.go pkg/inference/inference.go
 	go build -o bin/validation cmd/validation/main.go
 
-bin/listnodes: cmd/listnodes/main.go
+bin/listnodes: deps cmd/listnodes/main.go
 	go build -o bin/listnodes cmd/listnodes/main.go
 
 ######################################################################
@@ -48,7 +49,6 @@ unannotated-test-dataframe.sqlite: bin/prepare $(SENSE_ANNOTATED_TEST_DATA)
 	./bin/prepare --input-database $(SENSE_ANNOTATED_TEST_DATA) --output-database unannotated-test-dataframe.sqlite --output-choice=hash
 
 prepdata: sense-annotated-training-dataframe.sqlite sense-annotated-test-dataframe.sqlite unannotated-test-dataframe.sqlite unannotated-training-dataframe.sqlite
-
 
 training-docker-image: bin/train Dockerfile.train
 	docker build -t ultratree-train -f Dockerfile.train .
