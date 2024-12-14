@@ -1,4 +1,4 @@
-SENSE_ANNOTATED_TRAINING_DATA=/correct/path/to/TinyStories.sqlite
+SENSE_ANNOTATED_TRAINING_DATA=/tinystories/wordnetify-tinystories/TinyStories.sqlite
 SENSE_ANNOTATED_TEST_DATA=/tinystories/wordnetify-tinystories/w2.sqlite
 
 #SENSE_ANNOTATED_TRAINING_DATA=tiny.sqlite
@@ -34,6 +34,7 @@ bin/listnodes: cmd/listnodes/main.go
 
 # I copied this to /ultratree/language-model/tiny.sqlite -- not a great name
 ifneq ("$(wildcard $(SENSE_ANNOTATED_TRAINING_DATA))","")
+# If the TinyStories.sqlite file is missing, please obtain it by following the instructions in the project documentation or contact the project maintainer. Once obtained, place it in the /tinystories/wordnetify-tinystories/ directory.
 sense-annotated-training-dataframe.sqlite: bin/prepare $(SENSE_ANNOTATED_TRAINING_DATA)
 	./bin/prepare --input-database $(SENSE_ANNOTATED_TRAINING_DATA) --output-database sense-annotated-training-dataframe.sqlite
 else
