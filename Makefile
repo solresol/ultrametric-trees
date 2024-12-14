@@ -8,7 +8,7 @@ SENSE_ANNOTATED_TEST_DATA=/tinystories/wordnetify-tinystories/w2.sqlite
 
 .PHONY: build run test clean dbclean training-docker-image prepdata
 
-build: bin/prepare bin/train bin/report bin/showtree bin/validation bin/listnodes sense-annotated-training-dataframe.sqlite unannotated-training-dataframe.sqlite sense-annotated-test-dataframe.sqlite unannotated-test-dataframe.sqlite
+build: bin/prepare bin/train bin/report bin/showtree bin/validation bin/listnodes
 	echo All built
 
 bin/prepare: cmd/prepare/main.go
@@ -30,6 +30,7 @@ bin/listnodes: cmd/listnodes/main.go
 	go build -o bin/listnodes cmd/listnodes/main.go
 
 ######################################################################
+
 
 # I copied this to /ultratree/language-model/tiny.sqlite -- not a great name
 sense-annotated-training-dataframe.sqlite: bin/prepare $(SENSE_ANNOTATED_TRAINING_DATA)
