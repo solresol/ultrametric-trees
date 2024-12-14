@@ -38,19 +38,18 @@ ifneq ("$(wildcard $(SENSE_ANNOTATED_TRAINING_DATA))","")
 sense-annotated-training-dataframe.sqlite: bin/prepare $(SENSE_ANNOTATED_TRAINING_DATA)
 	./bin/prepare --input-database $(SENSE_ANNOTATED_TRAINING_DATA) --output-database sense-annotated-training-dataframe.sqlite
 else
-	$(error "The file $(SENSE_ANNOTATED_TRAINING_DATA) does not exist. Please verify the file path. If the file is missing, obtain it by following the instructions in the project documentation, or contact the project maintainer. Ensure the file is placed in the directory specified by the SENSE_ANNOTATED_TRAINING_DATA variable in this Makefile.")
+	@echo "Warning: The file $(SENSE_ANNOTATED_TRAINING_DATA) does not exist. Skipping related steps."
 endif
 
 unannotated-training-dataframe.sqlite: bin/prepare $(SENSE_ANNOTATED_TRAINING_DATA)
 	./bin/prepare --input-database $(SENSE_ANNOTATED_TRAINING_DATA) --output-database unannotated-training-dataframe.sqlite --output-choice=hash
-
 
 # I copied this to /ultratree/language-model/validation.sqlite -- a really terrible name
 ifneq ("$(wildcard $(SENSE_ANNOTATED_TEST_DATA))","")
 sense-annotated-test-dataframe.sqlite: bin/prepare $(SENSE_ANNOTATED_TEST_DATA)
 	./bin/prepare --input-database $(SENSE_ANNOTATED_TEST_DATA) --output-database sense-annotated-test-dataframe.sqlite
 else
-	$(error "SENSE_ANNOTATED_TEST_DATA file not found. Please ensure the file exists at $(SENSE_ANNOTATED_TEST_DATA) or update the path in the Makefile.")
+	@echo "Warning: SENSE_ANNOTATED_TEST_DATA file not found. Skipping related steps."
 endif
 
 
