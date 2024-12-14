@@ -7,6 +7,8 @@ import (
 	"fmt"
 	"log"
 	"strings"
+	
+	"cmd/prepare"
 	"time"
 
 	_ "github.com/mattn/go-sqlite3"
@@ -126,8 +128,8 @@ func main() {
 		log.Fatal("Both --input-database and --output-database are required")
 	}
 
-	if *outputChoice != "paths" && *outputChoice != "words" && *outputChoice != "hash" {
-		log.Fatal("Error: --output-choice must be either 'paths', 'words', or 'hash'.")
+	if !prepare.IsValidOutputChoice(*outputChoice) {
+		log.Fatal("Error: --output-choice must be one of the defined OutputChoice constants.")
 	}
 
 	inputConn, err := sql.Open("sqlite3", *inputDB)
