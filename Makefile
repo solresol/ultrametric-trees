@@ -42,8 +42,12 @@ else
 	@echo "Warning: The file $(SENSE_ANNOTATED_TRAINING_DATA) does not exist. Skipping related build steps. Please verify the file path or ensure the file is available if these steps are critical."
 endif
 
-unannotated-training-dataframe.sqlite: bin/prepare $(SENSE_ANNOTATED_TRAINING_DATA)
+unannotated-training-dataframe.sqlite: bin/prepare
+ifneq ("$(wildcard $(SENSE_ANNOTATED_TRAINING_DATA))","")
 	./bin/prepare --input-database $(SENSE_ANNOTATED_TRAINING_DATA) --output-database unannotated-training-dataframe.sqlite --output-choice=hash
+else
+	@echo "Warning: The file $(SENSE_ANNOTATED_TRAINING_DATA) does not exist. Skipping related build steps. Please verify the file path or ensure the file is available if these steps are critical."
+endif
 
 
 # I copied this to /ultratree/language-model/validation.sqlite -- a really terrible name
@@ -51,7 +55,8 @@ ifneq ("$(wildcard $(SENSE_ANNOTATED_TEST_DATA))","")
 sense-annotated-test-dataframe.sqlite: bin/prepare $(SENSE_ANNOTATED_TEST_DATA)
 	./bin/prepare --input-database $(SENSE_ANNOTATED_TEST_DATA) --output-database sense-annotated-test-dataframe.sqlite
 else
-	$(error "SENSE_ANNOTATED_TEST_DATA file not found. Please ensure the file exists at $(SENSE_ANNOTATED_TEST_DATA) or update the path in the Makefile.")
+	@echo "Warning: The file $(SENSE_ANNOTATED_TEST_DATA) does not exist. Skipping related build steps. Please verify the file path or ensure the file is available if these steps are critical."
+	endif
 endif
 
 
