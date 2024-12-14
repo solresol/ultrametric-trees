@@ -1,4 +1,6 @@
-SENSE_ANNOTATED_TRAINING_DATA=/tinystories/wordnetify-tinystories/TinyStories.sqlite
+SENSE_ANNOTATED_TRAINING_DATA=/correct/path/to/TinyStories.sqlite
+# Update the path above to the correct location of TinyStories.sqlite.
+# If the correct path is unknown, ensure the build process can skip steps requiring this file.
 SENSE_ANNOTATED_TEST_DATA=/tinystories/wordnetify-tinystories/w2.sqlite
 
 #SENSE_ANNOTATED_TRAINING_DATA=tiny.sqlite
@@ -37,7 +39,7 @@ ifneq ("$(wildcard $(SENSE_ANNOTATED_TRAINING_DATA))","")
 sense-annotated-training-dataframe.sqlite: bin/prepare $(SENSE_ANNOTATED_TRAINING_DATA)
 	./bin/prepare --input-database $(SENSE_ANNOTATED_TRAINING_DATA) --output-database sense-annotated-training-dataframe.sqlite
 else
-	$(error "The file $(SENSE_ANNOTATED_TRAINING_DATA) does not exist. Please verify the file path or ensure the file is available before proceeding with the build.")
+	@echo "Warning: The file $(SENSE_ANNOTATED_TRAINING_DATA) does not exist. Skipping related build steps. Please verify the file path or ensure the file is available if these steps are critical."
 endif
 
 unannotated-training-dataframe.sqlite: bin/prepare $(SENSE_ANNOTATED_TRAINING_DATA)
