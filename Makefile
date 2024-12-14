@@ -2,6 +2,7 @@ SENSE_ANNOTATED_TRAINING_DATA=/tinystories/wordnetify-tinystories/TinyStories.sq
 
 /tinystories/wordnetify-tinystories/TinyStories.sqlite:
 	@echo "Generating TinyStories.sqlite..."
+	chmod +x ./scripts/generate_tinystories_sqlite.sh
 	./scripts/generate_tinystories_sqlite.sh
 SENSE_ANNOTATED_TEST_DATA=/tinystories/wordnetify-tinystories/w2.sqlite
 
