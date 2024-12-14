@@ -1,4 +1,5 @@
-SENSE_ANNOTATED_TRAINING_DATA=/tinystories/wordnetify-tinystories/TinyStories.sqlite
+SENSE_ANNOTATED_TRAINING_DATA=/path/to/correct/location/TinyStories.sqlite
+# Update the SENSE_ANNOTATED_TRAINING_DATA variable to the correct path of TinyStories.sqlite
 SENSE_ANNOTATED_TEST_DATA=/tinystories/wordnetify-tinystories/w2.sqlite
 
 #SENSE_ANNOTATED_TRAINING_DATA=tiny.sqlite
@@ -38,7 +39,7 @@ ifneq ("$(wildcard $(SENSE_ANNOTATED_TRAINING_DATA))","")
 sense-annotated-training-dataframe.sqlite: bin/prepare $(SENSE_ANNOTATED_TRAINING_DATA)
 	./bin/prepare --input-database $(SENSE_ANNOTATED_TRAINING_DATA) --output-database sense-annotated-training-dataframe.sqlite
 else
-	$(error "The file $(SENSE_ANNOTATED_TRAINING_DATA) does not exist. Please verify the file path. If the file is missing, obtain it by following the instructions in the project documentation, or contact the project maintainer. Ensure the file is placed in the directory specified by the SENSE_ANNOTATED_TRAINING_DATA variable in this Makefile.")
+	@echo "Warning: The file $(SENSE_ANNOTATED_TRAINING_DATA) does not exist. Some targets may not work as expected."
 endif
 
 unannotated-training-dataframe.sqlite: bin/prepare $(SENSE_ANNOTATED_TRAINING_DATA)
@@ -64,6 +65,15 @@ training-docker-image: bin/train Dockerfile.train
 	docker build -t ultratree-train -f Dockerfile.train .
 
 test:
+check-training-data:
+	@if [ ! -f $(SENSE_ANNOTATED_TRAINING_DATA) ]; then \
+		echo "Error: The file $(SENSE_ANNOTATED_TRAINING_DATA) is missing."; \
+		echo "Please follow the instructions in the project documentation to obtain it."; \
+		exit 1; \
+	fi
+# Targets that require SENSE_ANNOTATED_TRAINING_DATA:
+# - sense-annotated-training-dataframe.sqlite
+# - unannotated-training-dataframe.sqlite
 	go test ./...
 
 clean:
