@@ -1,4 +1,8 @@
 SENSE_ANNOTATED_TRAINING_DATA=/tinystories/wordnetify-tinystories/TinyStories.sqlite
+
+/tinystories/wordnetify-tinystories/TinyStories.sqlite:
+	@echo "Generating TinyStories.sqlite..."
+	./scripts/generate_tinystories_sqlite.sh
 SENSE_ANNOTATED_TEST_DATA=/tinystories/wordnetify-tinystories/w2.sqlite
 
 #SENSE_ANNOTATED_TRAINING_DATA=tiny.sqlite
@@ -32,7 +36,7 @@ bin/listnodes: cmd/listnodes/main.go
 ######################################################################
 
 # I copied this to /ultratree/language-model/tiny.sqlite -- not a great name
-sense-annotated-training-dataframe.sqlite: bin/prepare $(SENSE_ANNOTATED_TRAINING_DATA)
+sense-annotated-training-dataframe.sqlite: bin/prepare $(SENSE_ANNOTATED_TRAINING_DATA) /tinystories/wordnetify-tinystories/TinyStories.sqlite
 	./bin/prepare --input-database $(SENSE_ANNOTATED_TRAINING_DATA) --output-database sense-annotated-training-dataframe.sqlite
 
 unannotated-training-dataframe.sqlite: bin/prepare $(SENSE_ANNOTATED_TRAINING_DATA)
