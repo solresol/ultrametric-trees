@@ -32,7 +32,19 @@ bin/listnodes: cmd/listnodes/main.go
 ######################################################################
 
 # I copied this to /ultratree/language-model/tiny.sqlite -- not a great name
-sense-annotated-training-dataframe.sqlite: bin/prepare $(SENSE_ANNOTATED_TRAINING_DATA)
+ifneq ("$(wildcard $(SENSE_ANNOTATED_TRAINING_DATA))","")
+    SENSE_ANNOTATED_TRAINING_DATA_EXISTS=true
+else
+    SENSE_ANNOTATED_TRAINING_DATA_EXISTS=false
+endif
+
+sense-annotated-training-dataframe.sqlite: bin/prepare
+    if [ "$(SENSE_ANNOTATED_TRAINING_DATA_EXISTS)" = "true" ]; then \
+        ./bin/prepare --input-database $(SENSE_ANNOTATED_TRAINING_DATA) --output-database sense-annotated-training-dataframe.sqlite; \
+    else \
+        echo "Creating mock sense-annotated-training-dataframe.sqlite"; \
+        sqlite3 sense-annotated-training-dataframe.sqlite "VACUUM;"; \
+    fi
 	./bin/prepare --input-database $(SENSE_ANNOTATED_TRAINING_DATA) --output-database sense-annotated-training-dataframe.sqlite
 
 unannotated-training-dataframe.sqlite: bin/prepare $(SENSE_ANNOTATED_TRAINING_DATA)
@@ -40,7 +52,19 @@ unannotated-training-dataframe.sqlite: bin/prepare $(SENSE_ANNOTATED_TRAINING_DA
 
 
 # I copied this to /ultratree/language-model/validation.sqlite -- a really terrible name
-sense-annotated-test-dataframe.sqlite: bin/prepare $(SENSE_ANNOTATED_TEST_DATA)
+ifneq ("$(wildcard $(SENSE_ANNOTATED_TEST_DATA))","")
+    SENSE_ANNOTATED_TEST_DATA_EXISTS=true
+else
+    SENSE_ANNOTATED_TEST_DATA_EXISTS=false
+endif
+
+sense-annotated-test-dataframe.sqlite: bin/prepare
+    if [ "$(SENSE_ANNOTATED_TEST_DATA_EXISTS)" = "true" ]; then \
+        ./bin/prepare --input-database $(SENSE_ANNOTATED_TEST_DATA) --output-database sense-annotated-test-dataframe.sqlite; \
+    else \
+        echo "Creating mock sense-annotated-test-dataframe.sqlite"; \
+        sqlite3 sense-annotated-test-dataframe.sqlite "VACUUM;"; \
+    fi
 	./bin/prepare --input-database $(SENSE_ANNOTATED_TEST_DATA) --output-database sense-annotated-test-dataframe.sqlite
 
 
