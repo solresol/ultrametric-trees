@@ -31,7 +31,8 @@ var hashedPseudoSynsetPrefix = map[string]string{
 }
 
 func hashThing(thing string) string {
-	hash := sha256.Sum256([]byte(thing))
+	stemmed := porter2.Stem(thing)
+	hash := sha256.Sum256([]byte(stemmed))
 	return fmt.Sprintf("%d", int(hash[0])<<24|int(hash[1])<<16|int(hash[2])<<8|int(hash[3]))
 }
 
