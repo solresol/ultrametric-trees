@@ -443,7 +443,7 @@ func getWordsForStory(db *sql.DB, storyID int) ([]WordData, int, error) {
 	return words, annotationCount, nil
 }
 
-func insertTrainingData(db *sql.DB, buffer []WordData, contextLength int, outputTable string, usePaths bool) (bool, error) {
+func insertTrainingData(db *sql.DB, buffer []WordData, contextLength int, outputTable string, outputChoice prepare.OutputChoice) (bool, error) {
 	query := fmt.Sprintf("select count(*) from %s where targetword_id = %d", outputTable, buffer[contextLength].WordID)
 	var numberOfAppearances int
 	err := db.QueryRow(query).Scan(&numberOfAppearances)
