@@ -17,6 +17,9 @@ jobs:
       with:
         go-version: 1.22
 
+    - name: Generate TinyStories.sqlite
+      run: ./scripts/generate_tinystories_sqlite.sh
+
     - name: Build the project
       run: make
       continue-on-error: false
