@@ -7,8 +7,6 @@ import (
 	"fmt"
 	"log"
 	"strings"
-	
-	"cmd/prepare"
 	"time"
 
 	_ "github.com/mattn/go-sqlite3"
@@ -88,6 +86,24 @@ func getPath(db *sql.DB, wordID int, word string, synset sql.NullString) (WordDa
 	return WordData{WordID: wordID, Word: word, Synset: synset, Path: prefix + hashedWord}, nil
 }
 
+type OutputChoice string
+
+const (
+    OutputPaths OutputChoice = "paths"
+    Words OutputChoice = "words"
+    OutputHashes  OutputChoice = "hash"
+)
+
+func IsValidOutputChoice(choice string) bool {
+    switch OutputChoice(choice) {
+    case OutputPaths, Words, OutputHashes:
+        return true
+    default:
+        return false
+    }
+}
+
+
 // prepare's CLI arguments:
 //  --input-database
 //  --context-length (default 16)
@@ -128,7 +144,7 @@ func main() {
 		log.Fatal("Both --input-database and --output-database are required")
 	}
 
-	if !prepare.IsValidOutputChoice(*outputChoice) {
+	if !IsValidOutputChoice(*outputChoice) {
 		log.Fatal("Error: --output-choice must be one of the defined OutputChoice constants.")
 	}
 
@@ -168,7 +184,7 @@ func main() {
 		}
 		storyID := storyIteration.StoryID
 		processedCount++
-		outputChoice := prepare.OutputChoice(*outputChoice)
+		outputChoice := OutputChoice(*outputChoice)
 		newlyAdded, newOverlaps, err := processStory(inputConn, outputConn, storyID, *contextLength, *outputTable, outputChoice)
 		newRecordCount += newlyAdded
 		overlapRecordCount += newOverlaps
@@ -303,7 +319,7 @@ func getStories(db *sql.DB, modulo, congruent int) (<-chan StoryIteration, error
 	return storyChannel, nil
 }
 
-func processStory(inputDB, outputDB *sql.DB, storyID, contextLength int, outputTable string, outputChoice prepare.OutputChoice) (int, int, error) {
+func processStory(inputDB, outputDB *sql.DB, storyID, contextLength int, outputTable string, outputChoice OutputChoice) (int, int, error) {
 	log.Printf("Processing story %d with context length %d into %s", storyID, contextLength, outputTable)
 	words, annotationCount, err := getWordsForStory(inputDB, storyID)
 	if err != nil {
@@ -443,7 +459,7 @@ func getWordsForStory(db *sql.DB, storyID int) ([]WordData, int, error) {
 	return words, annotationCount, nil
 }
 
-func insertTrainingData(db *sql.DB, buffer []WordData, contextLength int, outputTable string, outputChoice prepare.OutputChoice) (bool, error) {
+func insertTrainingData(db *sql.DB, buffer []WordData, contextLength int, outputTable string, outputChoice OutputChoice) (bool, error) {
 	query := fmt.Sprintf("select count(*) from %s where targetword_id = %d", outputTable, buffer[contextLength].WordID)
 	var numberOfAppearances int
 	err := db.QueryRow(query).Scan(&numberOfAppearances)
@@ -474,28 +490,22 @@ func insertTrainingData(db *sql.DB, buffer []WordData, contextLength int, output
 	query += ",?)"
 
 	args := make([]interface{}, contextLength+2)
-	args[0] = getDataForOutput(buffer[contextLength], outputChoice)
-	for i := 0; i < contextLength; i++ {
-		if usePaths {
-			args[i+1] = getDataForOutput(buffer[contextLength-1-i], outputChoice)
-		} else {
-			args[i+1] = buffer[contextLength-1-i].Word
-		}
-	}
 	// Helper function to get data based on output choice
-	getDataForOutput := func(wordData WordData, outputChoice prepare.OutputChoice) string {
-		if outputChoice == prepare.Hash {
+	getDataForOutput := func(wordData WordData, outputChoice OutputChoice) string {
+		if outputChoice == OutputHashes {
 			return hashThing(wordData.Word)
-		} else if outputChoice == prepare.Paths {
+		} else if outputChoice == OutputPaths {
 			return wordData.Path
 		}
 		return wordData.Word
 	}
 
-	args := make([]interface{}, contextLength+2)
-	args[0] = getDataForOutput(buffer[contextLength], usePaths, useHash)
+	// We always want to have the targetword being a path. We always want to predict
+	// paths
+	args[0] = getDataForOutput(buffer[contextLength], OutputPaths)
+	// But that the thing that we predict from... that changes.
 	for i := 0; i < contextLength; i++ {
-		args[i+1] = getDataForOutput(buffer[i], usePaths, useHash)
+		args[i+1] = getDataForOutput(buffer[contextLength-1-i], outputChoice)
 	}
 	args[contextLength+1] = buffer[contextLength].WordID
 	_, err = tx.Exec(query, args...)
@@ -505,7 +515,7 @@ func insertTrainingData(db *sql.DB, buffer []WordData, contextLength int, output
 	}
 
 	// Update decodings table
-	if outputChoice != prepare.Hash { // Only update decodings if we're not using hash
+	if outputChoice != OutputHashes { // Only update decodings if we're not using hash
 		for _, word := range buffer {
 			_, err := tx.Exec(`
 				INSERT INTO decodings (path, word, usage_count)
