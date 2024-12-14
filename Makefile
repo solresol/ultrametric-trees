@@ -41,7 +41,7 @@ ifneq ("$(wildcard $(SENSE_ANNOTATED_TRAINING_DATA))","")
 sense-annotated-training-dataframe.sqlite: bin/prepare $(SENSE_ANNOTATED_TRAINING_DATA)
 	./bin/prepare --input-database $(SENSE_ANNOTATED_TRAINING_DATA) --output-database sense-annotated-training-dataframe.sqlite
 else
-	$(error "Error: $(SENSE_ANNOTATED_TRAINING_DATA) file does not exist. Please download or generate the file before proceeding with the build. Instructions: [describe how to obtain the file, e.g. 'Run `some_command` to generate it or download from `some_url`'].")
+	$(error "Error: $(SENSE_ANNOTATED_TRAINING_DATA) file does not exist. Please run `generate_tinystories` to create the file or download it from `http://example.com/TinyStories.sqlite` before proceeding with the build.")
 endif
 
 unannotated-training-dataframe.sqlite: bin/prepare $(SENSE_ANNOTATED_TRAINING_DATA)
