@@ -12,6 +12,28 @@ that we need to work with here.
 Install a golang compiler and something that reads Makefiles. Type `make` and it should build
 everything you need.
 
+## Obtaining or Generating the TinyStories.sqlite File
+
+To obtain or generate the `TinyStories.sqlite` file, follow these steps:
+
+1. Ensure you have the prerequisites installed, including `git` and `python`.
+2. Clone the wordnetify project repository with the following command:
+   ```shell
+   git clone https://github.com/<wordnetify_repo>/wordnetify.git
+   ```
+3. Navigate to the project directory:
+   ```shell
+   cd wordnetify
+   ```
+4. Run the script that generates the `TinyStories.sqlite` database:
+   ```shell
+   python generate_tinystories_db.py
+   ```
+5. The `TinyStories.sqlite` file should now be generated in the current directory.
+
+If you encounter issues or the repository is not available, please contact the project maintainer
+for further assistance.
+
 # Running
 
 ## Prepare
