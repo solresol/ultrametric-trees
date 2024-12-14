@@ -44,8 +44,8 @@ sense-annotated-training-dataframe.sqlite: bin/prepare
         ./bin/prepare --input-database $(SENSE_ANNOTATED_TRAINING_DATA) --output-database sense-annotated-training-dataframe.sqlite; \
     else \
         echo "Creating mock sense-annotated-training-dataframe.sqlite"; \
-        sqlite3 sense-annotated-training-dataframe.sqlite "VACUUM;"; \
-    fi
+	sqlite3 sense-annotated-training-dataframe.sqlite "VACUUM;"; \
+	   fi
 	./bin/prepare --input-database $(SENSE_ANNOTATED_TRAINING_DATA) --output-database sense-annotated-training-dataframe.sqlite
 
 unannotated-training-dataframe.sqlite: bin/prepare $(SENSE_ANNOTATED_TRAINING_DATA)
