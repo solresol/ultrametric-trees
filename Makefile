@@ -1,8 +1,8 @@
-SENSE_ANNOTATED_TRAINING_DATA=/path/to/TinyStories.sqlite # Update this path or see documentation on obtaining the TinyStories.sqlit file
+SENSE_ANNOTATED_TRAINING_DATA=/correct/path/to/TinyStories.sqlite # Update this path or see documentation on obtaining the TinyStories.sqlit file
 # Add instructions to README on how to obtain or generate the TinyStories.sqlite file.
 SENSE_ANNOTATED_TEST_DATA=/tinystories/wordnetify-tinystories/w2.sqlite
 
-#SENSE_ANNOTATED_TRAINING_DATA=tiny.sqlite
+#SENSE_ANNOTATED_TRAINING_DATA=/correct/path/to/TinyStories.sqlite
 #SENSE_ANNOTATED_TEST_DATA=w2.sqlite
 
 ######################################################################
