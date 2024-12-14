@@ -32,16 +32,24 @@ bin/listnodes: cmd/listnodes/main.go
 ######################################################################
 
 # I copied this to /ultratree/language-model/tiny.sqlite -- not a great name
+ifneq ("$(wildcard $(SENSE_ANNOTATED_TRAINING_DATA))","")
 sense-annotated-training-dataframe.sqlite: bin/prepare $(SENSE_ANNOTATED_TRAINING_DATA)
 	./bin/prepare --input-database $(SENSE_ANNOTATED_TRAINING_DATA) --output-database sense-annotated-training-dataframe.sqlite
+else
+	$(error "SENSE_ANNOTATED_TRAINING_DATA file not found. Please ensure the file exists at $(SENSE_ANNOTATED_TRAINING_DATA) or update the path in the Makefile.")
+endif
 
 unannotated-training-dataframe.sqlite: bin/prepare $(SENSE_ANNOTATED_TRAINING_DATA)
 	./bin/prepare --input-database $(SENSE_ANNOTATED_TRAINING_DATA) --output-database unannotated-training-dataframe.sqlite --output-choice=hash
 
 
 # I copied this to /ultratree/language-model/validation.sqlite -- a really terrible name
+ifneq ("$(wildcard $(SENSE_ANNOTATED_TEST_DATA))","")
 sense-annotated-test-dataframe.sqlite: bin/prepare $(SENSE_ANNOTATED_TEST_DATA)
 	./bin/prepare --input-database $(SENSE_ANNOTATED_TEST_DATA) --output-database sense-annotated-test-dataframe.sqlite
+else
+	$(error "SENSE_ANNOTATED_TEST_DATA file not found. Please ensure the file exists at $(SENSE_ANNOTATED_TEST_DATA) or update the path in the Makefile.")
+endif
 
 
 unannotated-test-dataframe.sqlite: bin/prepare $(SENSE_ANNOTATED_TEST_DATA)
