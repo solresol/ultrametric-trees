@@ -40,12 +40,12 @@ else
 endif
 
 sense-annotated-training-dataframe.sqlite: bin/prepare
-    if [ "$(SENSE_ANNOTATED_TRAINING_DATA_EXISTS)" = "true" ]; then \
-        ./bin/prepare --input-database $(SENSE_ANNOTATED_TRAINING_DATA) --output-database sense-annotated-training-dataframe.sqlite; \
-    else \
-        echo "Creating mock sense-annotated-training-dataframe.sqlite"; \
-        sqlite3 sense-annotated-training-dataframe.sqlite "VACUUM;"; \
-    fi
+	if [ "$(SENSE_ANNOTATED_TRAINING_DATA_EXISTS)" = "true" ]; then \
+	./bin/prepare --input-database $(SENSE_ANNOTATED_TRAINING_DATA) --output-database sense-annotated-training-dataframe.sqlite; \
+	else \
+	echo "Creating mock sense-annotated-training-dataframe.sqlite"; \
+	sqlite3 sense-annotated-training-dataframe.sqlite "VACUUM;"; \
+	fi
 	./bin/prepare --input-database $(SENSE_ANNOTATED_TRAINING_DATA) --output-database sense-annotated-training-dataframe.sqlite
 
 unannotated-training-dataframe.sqlite: bin/prepare $(SENSE_ANNOTATED_TRAINING_DATA)
@@ -60,12 +60,12 @@ else
 endif
 
 sense-annotated-test-dataframe.sqlite: bin/prepare
-    if [ "$(SENSE_ANNOTATED_TEST_DATA_EXISTS)" = "true" ]; then \
-        ./bin/prepare --input-database $(SENSE_ANNOTATED_TEST_DATA) --output-database sense-annotated-test-dataframe.sqlite; \
-    else \
-        echo "Creating mock sense-annotated-test-dataframe.sqlite"; \
-        sqlite3 sense-annotated-test-dataframe.sqlite "VACUUM;"; \
-    fi
+	if [ "$(SENSE_ANNOTATED_TEST_DATA_EXISTS)" = "true" ]; then \
+	./bin/prepare --input-database $(SENSE_ANNOTATED_TEST_DATA) --output-database sense-annotated-test-dataframe.sqlite; \
+	else \
+	echo "Creating mock sense-annotated-test-dataframe.sqlite"; \
+	sqlite3 sense-annotated-test-dataframe.sqlite "VACUUM;"; \
+	fi
 	./bin/prepare --input-database $(SENSE_ANNOTATED_TEST_DATA) --output-database sense-annotated-test-dataframe.sqlite
 
 
