@@ -168,9 +168,8 @@ func main() {
 		}
 		storyID := storyIteration.StoryID
 		processedCount++
-		useHash := *outputChoice == "hash"
-		usePaths := *outputChoice == "paths"
-		newlyAdded, newOverlaps, err := processStory(inputConn, outputConn, storyID, *contextLength, *outputTable, usePaths, useHash)
+		outputChoice := prepare.OutputChoice(*outputChoice)
+		newlyAdded, newOverlaps, err := processStory(inputConn, outputConn, storyID, *contextLength, *outputTable, outputChoice)
 		newRecordCount += newlyAdded
 		overlapRecordCount += newOverlaps
 		if err != nil {
@@ -304,7 +303,7 @@ func getStories(db *sql.DB, modulo, congruent int) (<-chan StoryIteration, error
 	return storyChannel, nil
 }
 
-func processStory(inputDB, outputDB *sql.DB, storyID, contextLength int, outputTable string, usePaths, useHash bool) (int, int, error) {
+func processStory(inputDB, outputDB *sql.DB, storyID, contextLength int, outputTable string, outputChoice prepare.OutputChoice) (int, int, error) {
 	log.Printf("Processing story %d with context length %d into %s", storyID, contextLength, outputTable)
 	words, annotationCount, err := getWordsForStory(inputDB, storyID)
 	if err != nil {
@@ -369,7 +368,7 @@ func processStory(inputDB, outputDB *sql.DB, storyID, contextLength int, outputT
 		// that are shorter than the contextLength (the beginning of a story
 		// for example).
 		if len(buffer) == contextLength+1 {
-			existsAlready, err := insertTrainingData(outputDB, buffer, contextLength, outputTable, usePaths, useHash)
+			existsAlready, err := insertTrainingData(outputDB, buffer, contextLength, outputTable, outputChoice)
 			if err != nil {
 				return newlyAddedData, overlapSize, fmt.Errorf("Could not insert training data for word ID = %d (%s): %v",
 					word.WordID, word.Word, err)
@@ -386,7 +385,7 @@ func processStory(inputDB, outputDB *sql.DB, storyID, contextLength int, outputT
 	//log.Printf("Appending endOfText marker. Buffer length is %d", len(buffer))
 	buffer = append(buffer, endOfText)
 	if len(buffer) == contextLength+1 {
-		existsAlready, err := insertTrainingData(outputDB, buffer, contextLength, outputTable, usePaths, useHash)
+		existsAlready, err := insertTrainingData(outputDB, buffer, contextLength, outputTable, outputChoice)
 		if err != nil {
 			return newlyAddedData, overlapSize, fmt.Errorf("Could not insert the end of text marker on story %d: %v", storyID, err)
 		}
@@ -475,19 +474,19 @@ func insertTrainingData(db *sql.DB, buffer []WordData, contextLength int, output
 	query += ",?)"
 
 	args := make([]interface{}, contextLength+2)
-	args[0] = getDataForOutput(buffer[contextLength], usePaths, useHash)
+	args[0] = getDataForOutput(buffer[contextLength], outputChoice)
 	for i := 0; i < contextLength; i++ {
 		if usePaths {
-			args[i+1] = getDataForOutput(buffer[contextLength-1-i], usePaths, useHash)
+			args[i+1] = getDataForOutput(buffer[contextLength-1-i], outputChoice)
 		} else {
 			args[i+1] = buffer[contextLength-1-i].Word
 		}
 	}
 	// Helper function to get data based on output choice
-	getDataForOutput := func(wordData WordData, usePaths, useHash bool) string {
-		if useHash {
+	getDataForOutput := func(wordData WordData, outputChoice prepare.OutputChoice) string {
+		if outputChoice == prepare.Hash {
 			return hashThing(wordData.Word)
-		} else if usePaths {
+		} else if outputChoice == prepare.Paths {
 			return wordData.Path
 		}
 		return wordData.Word
@@ -506,7 +505,7 @@ func insertTrainingData(db *sql.DB, buffer []WordData, contextLength int, output
 	}
 
 	// Update decodings table
-	if !useHash { // Only update decodings if we're not using hash
+	if outputChoice != prepare.Hash { // Only update decodings if we're not using hash
 		for _, word := range buffer {
 			_, err := tx.Exec(`
 				INSERT INTO decodings (path, word, usage_count)
