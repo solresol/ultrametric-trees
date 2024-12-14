@@ -37,7 +37,7 @@ ifneq ("$(wildcard $(SENSE_ANNOTATED_TRAINING_DATA))","")
 sense-annotated-training-dataframe.sqlite: bin/prepare $(SENSE_ANNOTATED_TRAINING_DATA)
 	./bin/prepare --input-database $(SENSE_ANNOTATED_TRAINING_DATA) --output-database sense-annotated-training-dataframe.sqlite
 else
-	$(error "The file $(SENSE_ANNOTATED_TRAINING_DATA) does not exist. Please verify the file path or ensure the file is available before proceeding with the build.")
+	$(warning "The file $(SENSE_ANNOTATED_TRAINING_DATA) does not exist. Build steps requiring this file will be skipped.")
 endif
 
 unannotated-training-dataframe.sqlite: bin/prepare $(SENSE_ANNOTATED_TRAINING_DATA)
@@ -49,7 +49,7 @@ ifneq ("$(wildcard $(SENSE_ANNOTATED_TEST_DATA))","")
 sense-annotated-test-dataframe.sqlite: bin/prepare $(SENSE_ANNOTATED_TEST_DATA)
 	./bin/prepare --input-database $(SENSE_ANNOTATED_TEST_DATA) --output-database sense-annotated-test-dataframe.sqlite
 else
-	$(error "SENSE_ANNOTATED_TEST_DATA file not found. Please ensure the file exists at $(SENSE_ANNOTATED_TEST_DATA) or update the path in the Makefile.")
+	$(warning "SENSE_ANNOTATED_TEST_DATA file not found. Build steps requiring this file will be skipped.")
 endif
 
 
