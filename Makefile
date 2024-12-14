@@ -1,3 +1,7 @@
+# Ensure the SENSE_ANNOTATED_TRAINING_DATA file is available before running the build process.
+# This file contains training data annotated with sense information which is crucial for training the decision trees. Without this file, the build will not proceed.
+# To obtain the file, ensure it is generated or downloaded to the path specified by the SENSE_ANNOTATED_TRAINING_DATA variable.
+
 SENSE_ANNOTATED_TRAINING_DATA=/tinystories/wordnetify-tinystories/TinyStories.sqlite
 SENSE_ANNOTATED_TEST_DATA=/tinystories/wordnetify-tinystories/w2.sqlite
 
