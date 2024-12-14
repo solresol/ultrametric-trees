@@ -4,7 +4,7 @@ go 1.22
 
 toolchain go1.22.2
 
-require github.com/mattn/go-sqlite3 v1.14.16
+require github.com/mattn/go-sqlite3 v1.14.17
 
 require (
 	git.sr.ht/~sbinet/gg v0.5.0 // indirect
@@ -15,7 +15,7 @@ require (
 	github.com/go-pdf/fpdf v0.8.0 // indirect
 	github.com/golang/freetype v0.0.0-20170609003504-e2365dfdc4a0 // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect
-	github.com/surge/porter2 v0.0.0-20150829210152-56e4718818e8 // indirect
+	github.com/surge/porter2 v0.0.0-20231001-56e4718818e8 // indirect
 	golang.org/x/image v0.11.0 // indirect
 	golang.org/x/text v0.12.0 // indirect
 	gonum.org/v1/plot v0.14.0 // indirect
