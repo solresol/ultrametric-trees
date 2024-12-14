@@ -1,4 +1,5 @@
-SENSE_ANNOTATED_TRAINING_DATA=/correct/path/to/TinyStories.sqlite
+SENSE_ANNOTATED_TRAINING_DATA=/path/to/TinyStories.sqlite # Update this path or see documentation on obtaining the TinyStories.sqlit file
+# Add instructions to README on how to obtain or generate the TinyStories.sqlite file.
 SENSE_ANNOTATED_TEST_DATA=/tinystories/wordnetify-tinystories/w2.sqlite
 
 #SENSE_ANNOTATED_TRAINING_DATA=tiny.sqlite
@@ -37,7 +38,10 @@ ifneq ("$(wildcard $(SENSE_ANNOTATED_TRAINING_DATA))","")
 sense-annotated-training-dataframe.sqlite: bin/prepare $(SENSE_ANNOTATED_TRAINING_DATA)
 	./bin/prepare --input-database $(SENSE_ANNOTATED_TRAINING_DATA) --output-database sense-annotated-training-dataframe.sqlite
 else
-	$(error "The file $(SENSE_ANNOTATED_TRAINING_DATA) does not exist. Please verify the file path or ensure the file is available. If the file is missing, you can obtain it by following the instructions in the project documentation or contacting the project maintainer.")
+	@echo "Error: The file $(SENSE_ANNOTATED_TRAINING_DATA) does not exist."
+	@echo "Please verify the file path or check README.md for instructions on how to obtain or generate the TinyStories.sqlite file."
+	@echo "Skipping the generation of sense-annotated-training-dataframe.sqlite."
+	@false
 endif
 
 unannotated-training-dataframe.sqlite: bin/prepare $(SENSE_ANNOTATED_TRAINING_DATA)
@@ -49,7 +53,10 @@ ifneq ("$(wildcard $(SENSE_ANNOTATED_TEST_DATA))","")
 sense-annotated-test-dataframe.sqlite: bin/prepare $(SENSE_ANNOTATED_TEST_DATA)
 	./bin/prepare --input-database $(SENSE_ANNOTATED_TEST_DATA) --output-database sense-annotated-test-dataframe.sqlite
 else
-	$(error "SENSE_ANNOTATED_TEST_DATA file not found. Please ensure the file exists at $(SENSE_ANNOTATED_TEST_DATA) or update the path in the Makefile.")
+	@echo "Error: SENSE_ANNOTATED_TEST_DATA file not found at $(SENSE_ANNOTATED_TEST_DATA)."
+	@echo "Please check the path or refer to the README.md for guidance on obtaining or setting the correct file path."
+	@echo "Skipping the generation of sense-annotated-test-dataframe.sqlite."
+	@false
 endif
 
 
