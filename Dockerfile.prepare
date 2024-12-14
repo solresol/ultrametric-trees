@@ -1,0 +1,5 @@
+FROM golang:latest
+WORKDIR /app
+COPY cmd/prepare/main.go /app/cmd/prepare/main.go
+RUN go build -o /app/bin/prepare /app/cmd/prepare/main.go
+ENTRYPOINT ["/app/bin/prepare"]
