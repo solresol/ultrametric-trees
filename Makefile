@@ -37,7 +37,7 @@ ifneq ("$(wildcard $(SENSE_ANNOTATED_TRAINING_DATA))","")
 sense-annotated-training-dataframe.sqlite: bin/prepare $(SENSE_ANNOTATED_TRAINING_DATA)
 	./bin/prepare --input-database $(SENSE_ANNOTATED_TRAINING_DATA) --output-database sense-annotated-training-dataframe.sqlite
 else
-	$(error "The file $(SENSE_ANNOTATED_TRAINING_DATA) does not exist. Please verify the file path or ensure the file is available. If the file is missing, you can obtain it by following the instructions in the project documentation or contacting the project maintainer.")
+	$(error "The file $(SENSE_ANNOTATED_TRAINING_DATA) does not exist. Please verify the file path or ensure the file is available. Refer to the project documentation at https://github.com/solresol/ultrametric-trees#data-requirements for instructions on obtaining the file or contact the project maintainer for assistance.")
 endif
 
 unannotated-training-dataframe.sqlite: bin/prepare $(SENSE_ANNOTATED_TRAINING_DATA)
