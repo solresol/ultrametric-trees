@@ -8,7 +8,7 @@ SENSE_ANNOTATED_TEST_DATA=/tinystories/wordnetify-tinystories/w2.sqlite
 
 .PHONY: build run test clean dbclean training-docker-image prepdata
 
-build: bin/prepare bin/train bin/report bin/showtree bin/validation bin/listnodes
+build: bin/prepare bin/train bin/report bin/showtree bin/validation bin/listnodes sense-annotated-training-dataframe.sqlite unannotated-training-dataframe.sqlite sense-annotated-test-dataframe.sqlite unannotated-test-dataframe.sqlite
 	echo All built
 
 bin/prepare: cmd/prepare/main.go
