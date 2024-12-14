@@ -32,8 +32,15 @@ bin/listnodes: cmd/listnodes/main.go
 ######################################################################
 
 # I copied this to /ultratree/language-model/tiny.sqlite -- not a great name
+ifneq ("$(wildcard $(SENSE_ANNOTATED_TRAINING_DATA))","")
 sense-annotated-training-dataframe.sqlite: bin/prepare $(SENSE_ANNOTATED_TRAINING_DATA)
 	./bin/prepare --input-database $(SENSE_ANNOTATED_TRAINING_DATA) --output-database sense-annotated-training-dataframe.sqlite
+else
+	@echo "Warning: $(SENSE_ANNOTATED_TRAINING_DATA) not found. Creating a mock file."
+	sqlite3 $(SENSE_ANNOTATED_TRAINING_DATA) "VACUUM;"
+sense-annotated-training-dataframe.sqlite: bin/prepare $(SENSE_ANNOTATED_TRAINING_DATA)
+	./bin/prepare --input-database $(SENSE_ANNOTATED_TRAINING_DATA) --output-database sense-annotated-training-dataframe.sqlite
+endif
 
 unannotated-training-dataframe.sqlite: bin/prepare $(SENSE_ANNOTATED_TRAINING_DATA)
 	./bin/prepare --input-database $(SENSE_ANNOTATED_TRAINING_DATA) --output-database unannotated-training-dataframe.sqlite --output-choice=hash
@@ -55,6 +62,12 @@ training-docker-image: bin/train Dockerfile.train
 
 test:
 	go test ./...
+
+clean:
+	rm -rf bin/prepare bin/exemplar bin/train
+
+dbclean:
+	rm -f sense-annotated-test-data.sqlite
 
 clean:
 	rm -rf bin/prepare bin/exemplar bin/train
