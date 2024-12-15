@@ -2,7 +2,7 @@
 
 TZ=UTC
 cd ~/ultrametric-trees
-./bin/validation \
+./bin/evaluatemodel \
     -model /ultratree/language-model/tiny.sqlite \
     -model-cutoff-time "$(date +'%Y-%m-%d %H:%M:%S')" \
     -validation-database /ultratree/language-model/validation.sqlite \
