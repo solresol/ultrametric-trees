@@ -74,16 +74,16 @@ func main() {
 	if err != nil {
 		log.Fatalf("Error creating output table: %v", err)
 	}
-	var validation_run_id int64
+	var evaluation_run_id int64
 	// Create validation run
-	err = outputDB.QueryRow(`insert into evaluation_runs (description, model_file, model_table, model_node_count, cutoff_date, context_length, validation_datafile, validation_table, output_table) values (?,?,?,?,?,?,?,?,?) returning validation_run_id`,
-		*runDescription, *modelPath, *nodesTable, modelSize, timeFilter, *contextLength, *testdataDBPath, *testdataTable, *outputTable).Scan(&validation_run_id)
+	err = outputDB.QueryRow(`insert into evaluation_runs (description, model_file, model_table, model_node_count, cutoff_date, context_length, validation_datafile, validation_table, output_table) values (?,?,?,?,?,?,?,?,?) returning evaluation_run_id`,
+		*runDescription, *modelPath, *nodesTable, modelSize, timeFilter, *contextLength, *testdataDBPath, *testdataTable, *outputTable).Scan(&evaluation_run_id)
 	if err != nil {
 		log.Fatalf("Error inserting validation run: %v", err)
 	}
 
 	// Process validation data
-	err = processValidationData(modelDB, testdataDB, outputDB, inferenceEngine, *testdataTable, *outputTable, int(*limit), int(*contextLength), validation_run_id)
+	err = processValidationData(modelDB, testdataDB, outputDB, inferenceEngine, *testdataTable, *outputTable, int(*limit), int(*contextLength), evaluation_run_id)
 	if err != nil {
 		log.Fatalf("Error processing validation data: %v", err)
 	}
