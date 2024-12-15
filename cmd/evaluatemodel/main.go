@@ -19,8 +19,8 @@ func main() {
 	runDescription := flag.String("run-description", "", "An informative name to describe the validation run")
 	modelPath := flag.String("model", "", "Path to the trained model SQLite file")
 	nodesTable := flag.String("nodes-table", "nodes", "Name of the nodes table")
-	validationDBPath := flag.String("validation-database", "", "Path to the validation database")
-	validationTable := flag.String("validation-data-table", "training_data", "Name of the validation data table")
+	testdataDBPath := flag.String("test-data-database", "", "Path to the validation database")
+	testdataTable := flag.String("test-data-table", "training_data", "Name of the validation data table")
 	outputDBPath := flag.String("output-database", "", "Path to the output database")
 	outputTable := flag.String("output-table", "inferences", "Name of the output table")
 	limit := flag.Int64("limit", -1, "Stop after this many inferences")
@@ -28,7 +28,7 @@ func main() {
 	timeFilterString := flag.String("model-cutoff-time", "9999-12-31 23:59:59", "Only use training nodes that are older than the given time (format: 2006-01-02 15:05:07)")
 	flag.Parse()
 
-	if *runDescription == "" || *modelPath == "" || *validationDBPath == "" || *outputDBPath == "" {
+	if *runDescription == "" || *modelPath == "" || *testdataDBPath == "" || *outputDBPath == "" {
 		log.Fatal("Missing required arguments. Please provide run description, model, validation-database, and output-database paths")
 	}
 
@@ -56,11 +56,11 @@ func main() {
 	modelSize := inferenceEngine.Size()
 
 	// Connect to validation database
-	validationDB, err := sql.Open("sqlite3", *validationDBPath)
+	testdataDB, err := sql.Open("sqlite3", *testdataDBPath)
 	if err != nil {
 		log.Fatalf("Error opening validation database: %v", err)
 	}
-	defer validationDB.Close()
+	defer testdataDB.Close()
 
 	// Connect to output database
 	outputDB, err := sql.Open("sqlite3", *outputDBPath)
@@ -77,13 +77,13 @@ func main() {
 	var validation_run_id int64
 	// Create validation run
 	err = outputDB.QueryRow(`insert into validation_runs (description, model_file, model_table, model_node_count, cutoff_date, context_length, validation_datafile, validation_table, output_table) values (?,?,?,?,?,?,?,?,?) returning validation_run_id`,
-		*runDescription, *modelPath, *nodesTable, modelSize, timeFilter, *contextLength, *validationDBPath, *validationTable, *outputTable).Scan(&validation_run_id)
+		*runDescription, *modelPath, *nodesTable, modelSize, timeFilter, *contextLength, *testdataDBPath, *testdataTable, *outputTable).Scan(&validation_run_id)
 	if err != nil {
 		log.Fatalf("Error inserting validation run: %v", err)
 	}
 
 	// Process validation data
-	err = processValidationData(modelDB, validationDB, outputDB, inferenceEngine, *validationTable, *outputTable, int(*limit), int(*contextLength), validation_run_id)
+	err = processValidationData(modelDB, testdataDB, outputDB, inferenceEngine, *testdataTable, *outputTable, int(*limit), int(*contextLength), validation_run_id)
 	if err != nil {
 		log.Fatalf("Error processing validation data: %v", err)
 	}
@@ -129,19 +129,19 @@ func createOutputTable(db *sql.DB, tableName string) error {
 	return err
 }
 
-func processValidationData(trainingDB, validationDB, outputDB *sql.DB, engine *inference.ModelInference, validationTable, outputTable string, limit int, contextLength int, validation_run_id int64) error {
-	log.Printf("Running SELECT id, %s FROM %s", getContextColumns(contextLength), validationTable)
+func processValidationData(trainingDB, testdataDB, outputDB *sql.DB, engine *inference.ModelInference, testdataTable, outputTable string, limit int, contextLength int, validation_run_id int64) error {
+	log.Printf("Running SELECT id, %s FROM %s", getContextColumns(contextLength), testdataTable)
 	// Query to get validation data
 	query := fmt.Sprintf(`
 		SELECT id, %s, targetword
 		FROM %s
 		ORDER BY id
-	`, getContextColumns(contextLength), validationTable)
+	`, getContextColumns(contextLength), testdataTable)
 
 	if limit > 0 {
 		query = fmt.Sprintf("%s LIMIT %d", query, limit)
 	}
-	rows, err := validationDB.Query(query)
+	rows, err := testdataDB.Query(query)
 	if err != nil {
 		return fmt.Errorf("error querying validation data: %v", err)
 	}
@@ -173,7 +173,7 @@ func processValidationData(trainingDB, validationDB, outputDB *sql.DB, engine *i
 				contextStrings = append(contextStrings, ctx.String)
 			}
 		}
-		contextString, err := decode.ShowContext(validationDB, contextStrings)
+		contextString, err := decode.ShowContext(testdataDB, contextStrings)
 		if err != nil {
 			return err
 		}

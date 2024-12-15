@@ -5,14 +5,14 @@ cd ~/ultrametric-trees
 ./bin/evaluatemodel \
     -model /ultratree/language-model/tiny.sqlite \
     -model-cutoff-time "$(date +'%Y-%m-%d %H:%M:%S')" \
-    -validation-database /ultratree/language-model/validation.sqlite \
+    -test-data-database /ultratree/language-model/validation.sqlite \
     -run-description "Default daily $(date +%Y-%m-%d)" \
     -output-database ~/ultratree-results/inferences.sqlite
 
-./bin/validation \
+./bin/evaluatemodel \
     -model /ultratree/language-model/unannotated-model1.sqlite \
     -model-cutoff-time "$(date +'%Y-%m-%d %H:%M:%S')" \
-    -validation-database /ultratree/language-model/validation.sqlite \
+    -test-data-database /ultratree/language-model/validation.sqlite \
     -run-description "Default daily for unnotated data model #1 $(date +%Y-%m-%d)" \
     -output-database ~/ultratree-results/unannotated-model1.sqlite
 
