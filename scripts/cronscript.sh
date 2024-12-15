@@ -2,14 +2,15 @@
 
 TZ=UTC
 cd ~/ultrametric-trees
-./bin/evaluatemodel \
-    -model /ultratree/language-model/tiny.sqlite \
-    -model-cutoff-time "$(date +'%Y-%m-%d %H:%M:%S')" \
-    -test-data-database /ultratree/language-model/testdata.sqlite \
-    -run-description "Default daily $(date +%Y-%m-%d)" \
-    -output-database ~/ultratree-results/inferences.sqlite
 
-for i in 2 3 4 5
+#./bin/evaluatemodel \
+#    -model /ultratree/language-model/tiny.sqlite \
+#    -model-cutoff-time "$(date +'%Y-%m-%d %H:%M:%S')" \
+#    -test-data-database /ultratree/language-model/testdata.sqlite \
+#    -run-description "Default daily $(date +%Y-%m-%d)" \
+#    -output-database ~/ultratree-results/inferences.sqlite
+
+for i in 1 2 3 4 5
 do
     ./bin/evaluatemodel \
 	-model /ultratree/language-model/sense-annotated${i}.sqlite \
@@ -30,7 +31,7 @@ sqlite3 ~/ultratree-results/inferences.sqlite ".dump evaluation_runs" > ~/ultrat
 sqlite3 ~/ultratree-results/inferences.sqlite ".dump inferences" > ~/ultratree-results/inferences.sql
 
 
-./bin/report -db /ultratree/language-model/tiny.sqlite > ~/ultratree-results/training-results.csv
+./bin/report -db /ultratree/language-model/sense-annotated${i}.sqlite > ~/ultratree-results/training-results.csv
 ./bin/report -db /ultratree/language-model/unannotated-model1.sqlite > ~/ultratree-results/unannotated-model1-training-results.csv
 
 cd ~/ultratree-results
