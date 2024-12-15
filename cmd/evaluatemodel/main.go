@@ -32,7 +32,7 @@ func main() {
 		log.Fatal("Missing required arguments. Please provide run description, model, validation-database, and output-database paths")
 	}
 
-	if strings.ToLower(*outputTable) == "inference_runs" {
+	if strings.ToLower(*outputTable) == "evaluation_runs" {
 		log.Fatalf("Invalid name for the output table: %s", *outputTable)
 	}
 
@@ -76,7 +76,7 @@ func main() {
 	}
 	var validation_run_id int64
 	// Create validation run
-	err = outputDB.QueryRow(`insert into inference_runs (description, model_file, model_table, model_node_count, cutoff_date, context_length, validation_datafile, validation_table, output_table) values (?,?,?,?,?,?,?,?,?) returning validation_run_id`,
+	err = outputDB.QueryRow(`insert into evaluation_runs (description, model_file, model_table, model_node_count, cutoff_date, context_length, validation_datafile, validation_table, output_table) values (?,?,?,?,?,?,?,?,?) returning validation_run_id`,
 		*runDescription, *modelPath, *nodesTable, modelSize, timeFilter, *contextLength, *testdataDBPath, *testdataTable, *outputTable).Scan(&validation_run_id)
 	if err != nil {
 		log.Fatalf("Error inserting validation run: %v", err)
