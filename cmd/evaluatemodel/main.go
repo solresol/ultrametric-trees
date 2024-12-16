@@ -1,4 +1,4 @@
-// cmd/infer/main.go
+// cmd/evaluatemodel/main.go
 package main
 
 import (
@@ -17,7 +17,7 @@ import (
 
 func main() {
 	runDescription := flag.String("run-description", "", "An informative name to describe the evaluation run")
-	modelPath := flag.String("model", "", "Path to the trained model SQLite file")
+	modelPaths := flag.String("model", "", "Comma-separated list of paths to trained model SQLite files")
 	nodesTable := flag.String("nodes-table", "nodes", "Name of the nodes table")
 	testdataDBPath := flag.String("test-data-database", "", "Path to the validation database")
 	testdataTable := flag.String("test-data-table", "training_data", "Name of the validation data table")
@@ -28,32 +28,48 @@ func main() {
 	timeFilterString := flag.String("model-cutoff-time", "9999-12-31 23:59:59", "Only use training nodes that are older than the given time (format: 2006-01-02 15:05:07)")
 	flag.Parse()
 
-	if *runDescription == "" || *modelPath == "" || *testdataDBPath == "" || *outputDBPath == "" {
-		log.Fatal("Missing required arguments. Please provide run description, model, validation-database, and output-database paths")
+	if *runDescription == "" || *modelPaths == "" || *testdataDBPath == "" || *outputDBPath == "" {
+		log.Fatal("Missing required arguments. Please provide run description, models, validation-database, and output-database paths")
 	}
 
 	if strings.ToLower(*outputTable) == "evaluation_runs" {
 		log.Fatalf("Invalid name for the output table: %s", *outputTable)
 	}
 
-	// Connect to model database
-	modelDB, err := sql.Open("sqlite3", *modelPath)
-	if err != nil {
-		log.Fatalf("Error opening model database: %v", err)
+	modelPathList := strings.Split(*modelPaths, ",")
+	if len(modelPathList) == 0 {
+		log.Fatal("No model paths provided")
 	}
-	defer modelDB.Close()
 
+	// Parse time filter
 	timeFilter, err := time.Parse("2006-01-02 15:04:05", *timeFilterString)
 	if err != nil {
 		log.Fatalf("Error parsing timestamp: %v", err)
 	}
 
-	// Initialize inference engine
-	inferenceEngine, err := inference.NewModelInference(modelDB, *nodesTable, timeFilter)
-	if err != nil {
-		log.Fatalf("Error initializing inference engine: %v", err)
+	// Initialize inference engines for all models
+	var inferenceEngines []*inference.ModelInference
+	totalModelSize := 0
+
+	for _, modelPath := range modelPathList {
+		modelPath = strings.TrimSpace(modelPath)
+		modelDB, err := sql.Open("sqlite3", modelPath)
+		if err != nil {
+			log.Fatalf("Error opening model database %s: %v", modelPath, err)
+		}
+		defer modelDB.Close()
+
+		engine, err := inference.NewModelInference(modelDB, *nodesTable, timeFilter)
+		if err != nil {
+			log.Fatalf("Error initializing inference engine for %s: %v", modelPath, err)
+		}
+
+		inferenceEngines = append(inferenceEngines, engine)
+		totalModelSize += engine.Size()
 	}
-	modelSize := inferenceEngine.Size()
+
+	// Create ensemble model
+	ensemble := inference.NewEnsemblingModel(inferenceEngines)
 
 	// Connect to validation database
 	testdataDB, err := sql.Open("sqlite3", *testdataDBPath)
@@ -74,15 +90,27 @@ func main() {
 	if err != nil {
 		log.Fatalf("Error creating output table: %v", err)
 	}
+
+	// Insert evaluation run record
 	var evaluation_run_id int64
-	err = outputDB.QueryRow(`insert into evaluation_runs (description, model_file, model_table, model_node_count, cutoff_date, context_length, validation_datafile, validation_table, output_table) values (?,?,?,?,?,?,?,?,?) returning evaluation_run_id`,
-		*runDescription, *modelPath, *nodesTable, modelSize, timeFilter, *contextLength, *testdataDBPath, *testdataTable, *outputTable).Scan(&evaluation_run_id)
+	err = outputDB.QueryRow(`
+		insert into evaluation_runs (
+			description, model_file, model_table, model_node_count, 
+			cutoff_date, context_length, validation_datafile, 
+			validation_table, output_table
+		) values (?, ?, ?, ?, ?, ?, ?, ?, ?) 
+		returning evaluation_run_id`,
+		*runDescription, *modelPaths, *nodesTable, totalModelSize,
+		timeFilter, *contextLength, *testdataDBPath,
+		*testdataTable, *outputTable).Scan(&evaluation_run_id)
 	if err != nil {
 		log.Fatalf("Error inserting validation run: %v", err)
 	}
 
-	// Process validation data
-	err = processValidationData(modelDB, testdataDB, outputDB, inferenceEngine, *testdataTable, *outputTable, int(*limit), int(*contextLength), evaluation_run_id)
+	// Process validation data with ensemble model
+	err = processValidationData(modelPathList[0], testdataDB, outputDB, ensemble,
+		*testdataTable, *outputTable, int(*limit),
+		int(*contextLength), evaluation_run_id)
 	if err != nil {
 		log.Fatalf("Error processing validation data: %v", err)
 	}
@@ -90,27 +118,28 @@ func main() {
 
 func createOutputTable(db *sql.DB, tableName string) error {
 	_, err := db.Exec(`
-                create table if not exists evaluation_runs (
-                   evaluation_run_id integer primary key,
-                   evaluation_start_time timestamp default current_timestamp,
-                   evaluation_end_time timestamp,
-                   description text not null,
-                   model_file text not null,
-                   model_table text not null,
-                   model_node_count integer,
-                   cutoff_date timestamp,
-                   context_length integer,
-                   validation_datafile text not null,
-                   validation_table text not null,
-                   output_table text not null,
-                   number_of_data_points integer,
-                   total_loss float,
-                   average_depth float,
-                   average_in_region_hits float
-                )`)
+		create table if not exists evaluation_runs (
+			evaluation_run_id integer primary key,
+			evaluation_start_time timestamp default current_timestamp,
+			evaluation_end_time timestamp,
+			description text not null,
+			model_file text not null,
+			model_table text not null,
+			model_node_count integer,
+			cutoff_date timestamp,
+			context_length integer,
+			validation_datafile text not null,
+			validation_table text not null,
+			output_table text not null,
+			number_of_data_points integer,
+			total_loss float,
+			average_depth float,
+			average_in_region_hits float
+		)`)
 	if err != nil {
 		return err
 	}
+
 	query := fmt.Sprintf(`
 		CREATE TABLE IF NOT EXISTS %s (
 			id INTEGER PRIMARY KEY,
@@ -128,9 +157,18 @@ func createOutputTable(db *sql.DB, tableName string) error {
 	return err
 }
 
-func processValidationData(trainingDB, testdataDB, outputDB *sql.DB, engine *inference.ModelInference, testdataTable, outputTable string, limit int, contextLength int, evaluation_run_id int64) error {
+func processValidationData(trainingDBPath string, testdataDB, outputDB *sql.DB,
+	engine *inference.EnsemblingModel, testdataTable, outputTable string,
+	limit int, contextLength int, evaluation_run_id int64) error {
+
+	// Open first model DB for word decoding
+	trainingDB, err := sql.Open("sqlite3", trainingDBPath)
+	if err != nil {
+		return fmt.Errorf("error opening training database for decoding: %v", err)
+	}
+	defer trainingDB.Close()
+
 	log.Printf("Running SELECT id, %s FROM %s", getContextColumns(contextLength), testdataTable)
-	// Query to get validation data
 	query := fmt.Sprintf(`
 		SELECT id, %s, targetword
 		FROM %s
@@ -140,11 +178,13 @@ func processValidationData(trainingDB, testdataDB, outputDB *sql.DB, engine *inf
 	if limit > 0 {
 		query = fmt.Sprintf("%s LIMIT %d", query, limit)
 	}
+
 	rows, err := testdataDB.Query(query)
 	if err != nil {
 		return fmt.Errorf("error querying validation data: %v", err)
 	}
 	defer rows.Close()
+
 	totalLoss := 0.0
 	totalDepth := 0
 	totalInRegionHits := 0
@@ -156,7 +196,7 @@ func processValidationData(trainingDB, testdataDB, outputDB *sql.DB, engine *inf
 		contexts := make([]sql.NullString, contextLength)
 		scanArgs := make([]interface{}, contextLength+2)
 		scanArgs[0] = &id
-		scanArgs[17] = &correctAnswer
+		scanArgs[contextLength+1] = &correctAnswer
 		for i := range contexts {
 			scanArgs[i+1] = &contexts[i]
 		}
@@ -165,63 +205,83 @@ func processValidationData(trainingDB, testdataDB, outputDB *sql.DB, engine *inf
 			return fmt.Errorf("error scanning row: %v", err)
 		}
 
-		// Convert contexts to string slice
 		contextStrings := make([]string, 0, contextLength)
 		for _, ctx := range contexts {
 			if ctx.Valid {
 				contextStrings = append(contextStrings, ctx.String)
 			}
 		}
+
 		contextString, err := decode.ShowContext(testdataDB, contextStrings)
 		if err != nil {
 			return err
 		}
 		log.Printf("INFERING %d: %s", id, contextString)
 
-		// Perform inference
-		result, err := engine.InferSingle(contextStrings)
+		// Use ensemble inference instead of single model
+		result, err := engine.InferFromEnsemble(contextStrings)
 		if err != nil {
-			log.Printf("Warning: inference failed for id %d: %v", id, err)
+			log.Printf("Warning: ensemble inference failed for id %d: %v", id, err)
 			continue
 		}
 
-		// Save result
 		predictionSynset, err := exemplar.ParseSynsetpath(result.PredictedPath)
 		if err != nil {
 			log.Printf("Could not turn the prediction %s into a synsetpath: %v", result.PredictedPath, err)
 			continue
 		}
+
 		predictionWord, _ := decode.DecodePath(trainingDB, result.PredictedPath)
 		correctAnswerSynset, err := exemplar.ParseSynsetpath(correctAnswer)
 		if err != nil {
 			log.Printf("Could not turn the answer %s into a synsetpath: %v", correctAnswer, err)
 			continue
 		}
+
 		answerWord, _ := decode.DecodePath(trainingDB, correctAnswer)
 		loss := exemplar.CalculateCost(predictionSynset, correctAnswerSynset)
-		log.Printf("Prediction for %d was %s (%s); the correct answer was %s (%s). Loss was %f", id, result.PredictedPath, predictionWord, correctAnswer, answerWord, loss)
+
+		log.Printf("Prediction for %d was %s (%s); the correct answer was %s (%s). Loss was %f",
+			id, result.PredictedPath, predictionWord, correctAnswer, answerWord, loss)
+
 		_, err = outputDB.Exec(fmt.Sprintf(`
-			INSERT INTO %s (input_id, evaluation_run_id, final_node_id, predicted_path, correct_path, loss)
-			VALUES (?, ?, ?, ?, ?, ?)
-		`, outputTable), id, evaluation_run_id, result.FinalNodeID, result.PredictedPath, correctAnswer, loss)
+			INSERT INTO %s (
+				input_id, evaluation_run_id, final_node_id, 
+				predicted_path, correct_path, loss
+			) VALUES (?, ?, ?, ?, ?, ?)
+		`, outputTable), id, evaluation_run_id, result.FinalNodeID,
+			result.PredictedPath, correctAnswer, loss)
+
 		if err != nil {
 			return fmt.Errorf("error saving result for %d: %v", id, err)
 		}
+
 		totalLoss += loss
 		totalDepth += result.Depth
 		totalInRegionHits += result.InRegion
 		totalDataPoints++
 	}
+
 	log.Printf("Total loss: %f", totalLoss)
-	_, err = outputDB.Exec("update evaluation_runs set evaluation_end_time = current_timestamp, number_of_data_points = ?, total_loss = ?, average_depth = ?, average_in_region_hits = ? where evaluation_run_id = ?",
+
+	_, err = outputDB.Exec(`
+		update evaluation_runs set 
+			evaluation_end_time = current_timestamp,
+			number_of_data_points = ?,
+			total_loss = ?,
+			average_depth = ?,
+			average_in_region_hits = ?
+		where evaluation_run_id = ?`,
 		totalDataPoints,
 		totalLoss,
 		float64(totalDepth)/float64(totalDataPoints),
 		float64(totalInRegionHits)/float64(totalDataPoints),
 		evaluation_run_id)
+
 	if err != nil {
 		return fmt.Errorf("error closing off validation run %d: %v", evaluation_run_id, err)
 	}
+
 	return nil
 }
 

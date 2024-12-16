@@ -3,13 +3,7 @@
 TZ=UTC
 cd ~/ultrametric-trees
 
-#./bin/evaluatemodel \
-#    -model /ultratree/language-model/tiny.sqlite \
-#    -model-cutoff-time "$(date +'%Y-%m-%d %H:%M:%S')" \
-#    -test-data-database /ultratree/language-model/testdata.sqlite \
-#    -run-description "Default daily $(date +%Y-%m-%d)" \
-#    -output-database ~/ultratree-results/inferences.sqlite
-
+ENSEMBLE_MODEL="@"
 for i in 1 2 3 4 5
 do
     ./bin/evaluatemodel \
@@ -17,8 +11,20 @@ do
 	-model-cutoff-time "$(date +'%Y-%m-%d %H:%M:%S')" \
 	-test-data-database /ultratree/language-model/testdata.sqlite \
 	-run-description "Default daily $(date +%Y-%m-%d)" \
-	-output-database ~/ultratree-results/inferences.sqlite    
+	-output-database ~/ultratree-results/inferences.sqlite
+    ENSEMBLE_MODEL="$ENSEMBLE_MODEL,/ultratree/language-model/sense-annotated${i}.sqlite"
 done
+
+ENSEMBLE_MODEL=$(echo $ENSEMBLE_MODEL | sed 's/^@,//')
+
+./bin/evaluatemodel \
+    -model $ENSEMBLE_MODEL \
+    -model-cutoff-time "$(date +'%Y-%m-%d %H:%M:%S')" \
+    -test-data-database /ultratree/language-model/testdata.sqlite \
+    -run-description "Default daily for ensemble model $(date +%Y-%m-%d)" \
+    -output-database ~/ultratree-results/inferences.sqlite
+
+
 
 ./bin/evaluatemodel \
     -model /ultratree/language-model/unannotated-model1.sqlite \
