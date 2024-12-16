@@ -31,3 +31,7 @@ dict/*
 slm-w2.sqlite
 .claudesync
 w2.sqlite
+sense-annotated-test-dataframe.sqlite
+sense-annotated-training-dataframe.sqlite
+unannotated-test-dataframe.sqlite
+unannotated-training-dataframe.sqlite

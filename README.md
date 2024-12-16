@@ -74,7 +74,7 @@ for the training model:
 ```
 docker run -v /where/you/want/db/dir:/ultratree/language-model \
   ultratree-train \
-  --database /ultratree/language-model/tiny.sqlite \
+  --database /ultratree/language-model/sense-annotated1.sqlite \
 ```
 
 Optionally adding `--solar-monitor` to the end if relevant
@@ -97,7 +97,7 @@ You will need:
 - somewhere to put the validated database
   
 ```
-bin/validation --model tiny.sqlite \
+bin/validation --model sense-annotated1.sqlite \
     --validation-database validation-data.sqlite
 	--output-database inference.sqlite
 ```
