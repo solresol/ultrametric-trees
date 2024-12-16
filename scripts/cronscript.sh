@@ -48,4 +48,5 @@ git add inferences.sql
 git add training-results.csv
 git add unannotated-model1-training-results.csv
 git commit -q -m"Automatic updates $(date +%Y-%m-%d)"
+git pull -q
 git push -q
