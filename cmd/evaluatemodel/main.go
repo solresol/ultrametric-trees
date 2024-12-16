@@ -75,7 +75,6 @@ func main() {
 		log.Fatalf("Error creating output table: %v", err)
 	}
 	var evaluation_run_id int64
-	// Create validation run
 	err = outputDB.QueryRow(`insert into evaluation_runs (description, model_file, model_table, model_node_count, cutoff_date, context_length, validation_datafile, validation_table, output_table) values (?,?,?,?,?,?,?,?,?) returning evaluation_run_id`,
 		*runDescription, *modelPath, *nodesTable, modelSize, timeFilter, *contextLength, *testdataDBPath, *testdataTable, *outputTable).Scan(&evaluation_run_id)
 	if err != nil {
