@@ -23,7 +23,7 @@ bin/report: cmd/report/main.go
 bin/showtree: cmd/showtree/main.go
 	go build -o bin/showtree cmd/showtree/main.go
 
-bin/evaluatemodel: cmd/evaluatemodel/main.go pkg/inference/inference.go
+bin/evaluatemodel: cmd/evaluatemodel/main.go pkg/inference/inference.go pkg/inference/ensemble.go
 	go build -o bin/evaluatemodel cmd/evaluatemodel/main.go
 
 bin/listnodes: cmd/listnodes/main.go
