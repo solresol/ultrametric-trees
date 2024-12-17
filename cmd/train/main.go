@@ -141,10 +141,12 @@ func initialisationRequired(db *sql.DB, trainingDataTable, nodeBucketTable, node
 	}
 
 	if !nodeBucketTableExists {
+		log.Printf("The node bucket table %s does not exist yet", nodeBucketTable)
 		return true, nil
 	}
 
 	if !nodesTableExists {
+		log.Printf("The nodes table %s does not exist yet", nodesTable)
 		return true, nil
 	}
 
@@ -154,6 +156,7 @@ func initialisationRequired(db *sql.DB, trainingDataTable, nodeBucketTable, node
 		return true, fmt.Errorf("Could not compare the sizes of %s and %s: %v", trainingDataTable, nodeBucketTable, err)
 	}
 	if !sameSize {
+		log.Printf("The trainingDataTable %s and the nodeBucketTable %s are not the same size", trainingDataTable, nodeBucketTable)
 		return true, nil
 	}
 
@@ -163,6 +166,7 @@ func initialisationRequired(db *sql.DB, trainingDataTable, nodeBucketTable, node
 			nodesTable, err)
 	}
 	if nodesIsEmpty {
+		log.Printf("The nodes table %s is empty", nodesTable)
 		return true, nil
 	}
 	return false, nil
