@@ -1,5 +1,7 @@
 #!/bin/bash
 
+( cd ~/ultratree-results ; git pull -q )
+
 TZ=UTC
 cd ~/ultrametric-trees
 
@@ -41,7 +43,6 @@ sqlite3 ~/ultratree-results/inferences.sqlite ".dump inferences" > ~/ultratree-r
 ./bin/report -db /ultratree/language-model/unannotated-model1.sqlite > ~/ultratree-results/unannotated-model1-training-results.csv
 
 cd ~/ultratree-results
-git pull -q
 git add evaluation_runs.sql
 git add inferences.sql
 git add training-results.csv
