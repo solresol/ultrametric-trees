@@ -193,6 +193,9 @@ func FindBestExemplar(rows []DataFrameRow, exemplarGuesses, costGuesses int, rng
 	if len(rows) == 0 {
 		return Synsetpath{}, 0, fmt.Errorf("no rows provided to FindBestExemplar")
 	}
+        if len(rows) < exemplarGuesses {
+		exemplarGuesses = len(rows)
+        }
 
 	bestExemplar := Synsetpath{}
 	bestLoss := math.Inf(1)
