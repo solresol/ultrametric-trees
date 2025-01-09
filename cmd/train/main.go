@@ -218,6 +218,7 @@ func createGoodSplit(db *sql.DB,
 	var bestInsideExemplar, bestOutsideExemplar exemplar.Synsetpath
 	var bestInsideRows, bestOutsideRows []exemplar.DataFrameRow
 
+	foundSomethingToDo := false
 	for i := 0; i < splitCountTry; i++ {
 		k := rng.Intn(contextLength) + 1
 		sourceRows, err := exemplar.LoadContextNWithinNode(db, trainingDataTable, nodeBucketTable, nodeID, k, contextLength)
@@ -255,6 +256,7 @@ func createGoodSplit(db *sql.DB,
 			totalLoss := insideLoss + outsideLoss
 
 			if totalLoss < bestTotalLoss {
+				foundSomethingToDo = true
 				bestTotalLoss = totalLoss
 				bestContextK = k
 				bestCircle = randomSynset
@@ -266,6 +268,10 @@ func createGoodSplit(db *sql.DB,
 				outsideLossOfBest = outsideLoss
 			}
 		}
+	}
+
+	if !foundSomethingToDo {
+		return 0.0, fmt.Errorf("Errors prevented any forward progress")
 	}
 
 	// Start transaction
