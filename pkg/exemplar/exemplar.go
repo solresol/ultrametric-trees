@@ -162,8 +162,13 @@ func SplitByFilter(source, target []DataFrameRow, synsetFilter Synsetpath) ([]Da
 // same for one number, so the loss is 2^{-1} = 0.5.  . If the
 // comparator had been 1.2.3.1.5, then the loss would have been 2^{-3}
 // = 0.125
+//
+// There is a small bug here. It should 
 
 func CalculateCost(exemplar, comparator Synsetpath) float64 {
+	if exemplar == comparator {
+		return 0
+	}
 	commonPrefixLength := 0
 	for i := 0; i < len(exemplar.Path) && i < len(comparator.Path); i++ {
 		if exemplar.Path[i] != comparator.Path[i] {
