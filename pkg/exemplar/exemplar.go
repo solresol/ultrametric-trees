@@ -175,7 +175,7 @@ func CalculateCost(exemplar, comparator Synsetpath) float64 {
 		}
 		commonPrefixLength++
 	}
-	if !foundDifference {
+	if !foundDifference && (len(exemplar.Path) == len(comparator.Path)) {
 		return 0
 	}
 
