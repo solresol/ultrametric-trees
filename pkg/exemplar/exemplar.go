@@ -166,15 +166,17 @@ func SplitByFilter(source, target []DataFrameRow, synsetFilter Synsetpath) ([]Da
 // There is a small bug here. It should 
 
 func CalculateCost(exemplar, comparator Synsetpath) float64 {
-	if exemplar.Path == comparator.Path {
-		return 0
-	}
 	commonPrefixLength := 0
+	foundDifference := false
 	for i := 0; i < len(exemplar.Path) && i < len(comparator.Path); i++ {
 		if exemplar.Path[i] != comparator.Path[i] {
+			foundDifference = true
 			break
 		}
 		commonPrefixLength++
+	}
+	if !foundDifference {
+		return 0
 	}
 
 	return math.Pow(2, -float64(commonPrefixLength))
