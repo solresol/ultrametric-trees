@@ -8,7 +8,7 @@ SENSE_ANNOTATED_TEST_DATA=/tinystories/wordnetify-tinystories/w2.sqlite
 
 .PHONY: build run test clean dbclean training-docker-image prepdata
 
-build: bin/prepare bin/train bin/report bin/showtree bin/evaluatemodel bin/listnodes bin/contextreport
+build: bin/prepare bin/train bin/report bin/showtree bin/evaluatemodel bin/listnodes bin/contextreport bin/nodeprune
 	echo All built
 
 bin/prepare: cmd/prepare/main.go
@@ -31,6 +31,9 @@ bin/listnodes: cmd/listnodes/main.go
 
 bin/contextreport: cmd/contextreport/main.go
 	go build -o bin/contextreport cmd/contextreport/main.go
+
+bin/nodeprune: cmd/nodeprune/main.go
+	go build -o bin/nodeprune cmd/nodeprune/main.go
 
 ######################################################################
 
