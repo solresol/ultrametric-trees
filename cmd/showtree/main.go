@@ -44,18 +44,18 @@ func main() {
 	if err != nil {
 		log.Fatalf("Error fetching filtered nodes: %v", err)
 	}
-	err = displayTree(db, activeNodes)
+	nodeMap := make(map[int]node.Node)
+	for _, n := range activeNodes {
+		nodeMap[n.ID] = n
+	}
+
+	err = displayTree(db, nodeMap)
 	if err != nil {
 		log.Fatalf("Could not displayTree: %v", err)
 	}
 }
 
-func displayTree(db *sql.DB, nodes []node.Node) error {
-	nodeMap := make(map[int]node.Node)
-	for _, n := range nodes {
-		nodeMap[n.ID] = n
-	}
-
+func displayTree(db *sql.DB, nodeMap map[int]node.Node) error {
 	// Start the recursive display from the root node
 	// err := displayNodeAndChildren(db, 0, int(exemplar.RootNodeID), nodeMap, "", "[DEFAULT]", false)
 	err := displayNodeRecursively(db, 0, int(exemplar.RootNodeID), nodeMap, "Root node")
