@@ -26,7 +26,7 @@ func main() {
 	outputTable := flag.String("output-table", "inferences", "Name of the output table")
 	limit := flag.Int64("limit", -1, "Stop after this many inferences")
 	contextLength := flag.Int64("context-length", 16, "Length of the context window")
-	timeFilterString := flag.String("model-cutoff-time", "9999-12-31 23:59:59", "Only use training nodes that are older than the given time (format: 2006-01-02 15:05:07)")
+	timeFilterString := flag.String("model-cutoff-time", "2099-12-31 23:59:59", "Only use training nodes that are older than the given time (format: 2006-01-02 15:05:07)")
 	verbose := flag.Bool("verbose", false, "Enable verbose output")
 	flag.Parse()
 
@@ -42,7 +42,7 @@ func main() {
 	if *outputDBPath == "" {
 		*outputDBPath = os.Getenv("ULTRATREE_EVAL_OUTPUT_DB_PATH")
 	}
-	if *timeFilterString == "9999-12-31 23:59:59" {
+	if *timeFilterString == "2099-12-31 23:59:59" {
 		envTimeFilter := os.Getenv("ULTRATREE_EVAL_MODEL_CUTOFF_TIME")
 		if envTimeFilter != "" {
 			*timeFilterString = envTimeFilter
