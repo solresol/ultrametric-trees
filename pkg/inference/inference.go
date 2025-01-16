@@ -45,7 +45,7 @@ func (m *ModelInference) Size() int {
 }
 
 // InferSingle performs inference on a single context
-func (m *ModelInference) InferSingle(context []string) (*InferenceResult, error) {
+func (m *ModelInference) InferSingle(context []string, verbose bool) (*InferenceResult, error) {
 	currentNode := m.findRootNode()
 	if currentNode == nil {
 		return nil, fmt.Errorf("could not find root node")
@@ -55,7 +55,7 @@ func (m *ModelInference) InferSingle(context []string) (*InferenceResult, error)
 	matches := 0
 	// Traverse the tree based on context
 	for currentNode.HasChildren {
-		nextNode, inner, err := m.traverseNode(currentNode, context)
+		nextNode, inner, err := m.traverseNode(currentNode, context, verbose)
 		if err != nil {
 			return nil, err
 		}
@@ -89,7 +89,7 @@ func (m *ModelInference) findRootNode() *node.Node {
 	return nil
 }
 
-func (m *ModelInference) traverseNode(current *node.Node, context []string) (*node.Node, bool, error) {
+func (m *ModelInference) traverseNode(current *node.Node, context []string, verbose bool) (*node.Node, bool, error) {
 	if !current.ContextK.Valid {
 		return nil, false, fmt.Errorf("invalid context index in node %d", current.ID)
 	}
@@ -104,8 +104,10 @@ func (m *ModelInference) traverseNode(current *node.Node, context []string) (*no
 	decodedExemplar, _ := decode.DecodePath(m.db, current.ExemplarValue.String)
 
 	if strings.HasPrefix(current.InnerRegionPrefix.String, contextValue) {
-		log.Printf("Node %d matched. It wanted context%d which is `%s' (%s) to be in %s (%s), which suggests predicting %s (%s)", current.ID, current.ContextK.Int64, decodedValue, contextValue, current.InnerRegionPrefix.String, decodedRegion, current.ExemplarValue.String, decodedExemplar)
-		//log.Printf("It is inside that, so we will go to %d", current.InnerRegionNodeID.Int64)
+		if verbose {
+			log.Printf("Node %d matched. It wanted context%d which is `%s' (%s) to be in %s (%s), which suggests predicting %s (%s)", current.ID, current.ContextK.Int64, decodedValue, contextValue, current.InnerRegionPrefix.String, decodedRegion, current.ExemplarValue.String, decodedExemplar)
+			//log.Printf("It is inside that, so we will go to %d", current.InnerRegionNodeID.Int64)
+		}
 		n, err := m.findNodeByID(int(current.InnerRegionNodeID.Int64))
 		if err != nil {
 			return nil, false, fmt.Errorf("Could not find inner node %d: %v", current.InnerRegionNodeID.Int64, err)

@@ -6,6 +6,7 @@ import (
 	"flag"
 	"fmt"
 	"log"
+	"os"
 	"strings"
 	"time"
 
@@ -26,7 +27,27 @@ func main() {
 	limit := flag.Int64("limit", -1, "Stop after this many inferences")
 	contextLength := flag.Int64("context-length", 16, "Length of the context window")
 	timeFilterString := flag.String("model-cutoff-time", "9999-12-31 23:59:59", "Only use training nodes that are older than the given time (format: 2006-01-02 15:05:07)")
+	verbose := flag.Bool("verbose", false, "Enable verbose output")
 	flag.Parse()
+
+	if *runDescription == "" {
+		*runDescription = os.Getenv("ULTRATREE_EVAL_RUN_DESCRIPTION")
+	}
+	if *modelPaths == "" {
+		*modelPaths = os.Getenv("ULTRATREE_EVAL_MODEL_PATHS")
+	}
+	if *testdataDBPath == "" {
+		*testdataDBPath = os.Getenv("ULTRATREE_EVAL_TEST_DATA_DB_PATH")
+	}
+	if *outputDBPath == "" {
+		*outputDBPath = os.Getenv("ULTRATREE_EVAL_OUTPUT_DB_PATH")
+	}
+	if *timeFilterString == "9999-12-31 23:59:59" {
+		envTimeFilter := os.Getenv("ULTRATREE_EVAL_MODEL_CUTOFF_TIME")
+		if envTimeFilter != "" {
+			*timeFilterString = envTimeFilter
+		}
+	}
 
 	if *runDescription == "" || *modelPaths == "" || *testdataDBPath == "" || *outputDBPath == "" {
 		log.Fatal("Missing required arguments. Please provide run description, models, validation-database, and output-database paths")
@@ -95,10 +116,10 @@ func main() {
 	var evaluation_run_id int64
 	err = outputDB.QueryRow(`
 		insert into evaluation_runs (
-			description, model_file, model_table, model_node_count, 
-			cutoff_date, context_length, validation_datafile, 
+			description, model_file, model_table, model_node_count,
+			cutoff_date, context_length, validation_datafile,
 			validation_table, output_table
-		) values (?, ?, ?, ?, ?, ?, ?, ?, ?) 
+		) values (?, ?, ?, ?, ?, ?, ?, ?, ?)
 		returning evaluation_run_id`,
 		*runDescription, *modelPaths, *nodesTable, totalModelSize,
 		timeFilter, *contextLength, *testdataDBPath,
@@ -110,7 +131,7 @@ func main() {
 	// Process validation data with ensemble model
 	err = processValidationData(modelPathList[0], testdataDB, outputDB, ensemble,
 		*testdataTable, *outputTable, int(*limit),
-		int(*contextLength), evaluation_run_id)
+		int(*contextLength), evaluation_run_id, *verbose)
 	if err != nil {
 		log.Fatalf("Error processing validation data: %v", err)
 	}
@@ -159,7 +180,7 @@ func createOutputTable(db *sql.DB, tableName string) error {
 
 func processValidationData(trainingDBPath string, testdataDB, outputDB *sql.DB,
 	engine *inference.EnsemblingModel, testdataTable, outputTable string,
-	limit int, contextLength int, evaluation_run_id int64) error {
+	limit int, contextLength int, evaluation_run_id int64, verbose bool) error {
 
 	// Open first model DB for word decoding
 	trainingDB, err := sql.Open("sqlite3", trainingDBPath)
@@ -168,7 +189,9 @@ func processValidationData(trainingDBPath string, testdataDB, outputDB *sql.DB,
 	}
 	defer trainingDB.Close()
 
-	log.Printf("Running SELECT id, %s FROM %s", getContextColumns(contextLength), testdataTable)
+	if verbose {
+		log.Printf("Running SELECT id, %s FROM %s", getContextColumns(contextLength), testdataTable)
+	}
 	query := fmt.Sprintf(`
 		SELECT id, %s, targetword
 		FROM %s
@@ -216,10 +239,12 @@ func processValidationData(trainingDBPath string, testdataDB, outputDB *sql.DB,
 		if err != nil {
 			return err
 		}
-		log.Printf("INFERING %d: %s", id, contextString)
+		if verbose {
+			log.Printf("INFERING %d: %s", id, contextString)
+		}
 
 		// Use ensemble inference instead of single model
-		result, err := engine.InferFromEnsemble(contextStrings)
+		result, err := engine.InferFromEnsemble(contextStrings, verbose)
 		if err != nil {
 			log.Printf("Warning: ensemble inference failed for id %d: %v", id, err)
 			continue
@@ -241,12 +266,14 @@ func processValidationData(trainingDBPath string, testdataDB, outputDB *sql.DB,
 		answerWord, _ := decode.DecodePath(trainingDB, correctAnswer)
 		loss := exemplar.CalculateCost(predictionSynset, correctAnswerSynset)
 
-		log.Printf("Prediction for %d was %s (%s); the correct answer was %s (%s). Loss was %f",
-			id, result.PredictedPath, predictionWord, correctAnswer, answerWord, loss)
+		if verbose {
+			log.Printf("Prediction for %d was %s (%s); the correct answer was %s (%s). Loss was %f",
+				id, result.PredictedPath, predictionWord, correctAnswer, answerWord, loss)
+		}
 
 		_, err = outputDB.Exec(fmt.Sprintf(`
 			INSERT INTO %s (
-				input_id, evaluation_run_id, final_node_id, 
+				input_id, evaluation_run_id, final_node_id,
 				predicted_path, correct_path, loss
 			) VALUES (?, ?, ?, ?, ?, ?)
 		`, outputTable), id, evaluation_run_id, result.FinalNodeID,
@@ -265,7 +292,7 @@ func processValidationData(trainingDBPath string, testdataDB, outputDB *sql.DB,
 	log.Printf("Total loss: %f", totalLoss)
 
 	_, err = outputDB.Exec(`
-		update evaluation_runs set 
+		update evaluation_runs set
 			evaluation_end_time = current_timestamp,
 			number_of_data_points = ?,
 			total_loss = ?,

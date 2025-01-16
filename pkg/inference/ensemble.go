@@ -21,7 +21,7 @@ func NewEnsemblingModel(models []*ModelInference) *EnsemblingModel {
 
 // InferFromEnsemble performs inference using all models in the ensemble and
 // selects the best prediction based on consensus
-func (em *EnsemblingModel) InferFromEnsemble(context []string) (*InferenceResult, error) {
+func (em *EnsemblingModel) InferFromEnsemble(context []string, verbose bool) (*InferenceResult, error) {
     if len(em.models) == 0 {
         return nil, fmt.Errorf("no models in ensemble")
     }
@@ -31,7 +31,7 @@ func (em *EnsemblingModel) InferFromEnsemble(context []string) (*InferenceResult
     synsetPaths := make([]exemplar.Synsetpath, 0, len(em.models))
 
     for _, model := range em.models {
-        prediction, err := model.InferSingle(context)
+        prediction, err := model.InferSingle(context, verbose)
         if err != nil {
             return nil, fmt.Errorf("error getting prediction from model: %v", err)
         }
