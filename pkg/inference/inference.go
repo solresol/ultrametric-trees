@@ -24,6 +24,7 @@ type ModelInference struct {
 	db         *sql.DB
 	nodesTable string
 	nodes      []node.Node
+	nodesTableLookup map[int]*node.Node
 }
 
 // NewModelInference creates a new inference engine from a trained model
@@ -33,10 +34,16 @@ func NewModelInference(db *sql.DB, nodesTable string, timeFilter time.Time) (*Mo
 		return nil, fmt.Errorf("failed to fetch nodes: %v", err)
 	}
 
+	nodesTableLookup := make(map[int]*node.Node)
+	for i := range nodes {
+		nodesTableLookup[nodes[i].ID] = &nodes[i]
+	}
+
 	return &ModelInference{
 		db:         db,
 		nodesTable: nodesTable,
 		nodes:      nodes,
+		nodesTableLookup: nodesTableLookup,
 	}, nil
 }
 
@@ -81,11 +88,7 @@ func (m *ModelInference) InferSingle(context []string, verbose bool) (*Inference
 }
 
 func (m *ModelInference) findRootNode() *node.Node {
-	for i := range m.nodes {
-		if m.nodes[i].ID == 1 { // Root node ID is 1
-			return &m.nodes[i]
-		}
-	}
+	return m.nodesTableLookup[1] // Root node ID is 1
 	return nil
 }
 
@@ -125,10 +128,8 @@ func (m *ModelInference) traverseNode(current *node.Node, context []string, verb
 }
 
 func (m *ModelInference) findNodeByID(id int) (*node.Node, error) {
-	for i := range m.nodes {
-		if m.nodes[i].ID == id {
-			return &m.nodes[i], nil
-		}
+	if node, exists := m.nodesTableLookup[id]; exists {
+		return node, nil
 	}
 	return nil, fmt.Errorf("node %d not found", id)
 }
