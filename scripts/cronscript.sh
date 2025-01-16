@@ -8,6 +8,7 @@ export ULTRATREE_EVAL_RUN_DESCRIPTION="Default daily $(date +%Y-%m-%d)"
 export ULTRATREE_EVAL_TEST_DATA_DB_PATH="/ultratree/language-model/testdata.sqlite"
 export ULTRATREE_EVAL_MODE_CUTOFF_TIME="$(date +'%Y-%m-%d %H:%M:%S')"
 export ULTRATREE_EVAL_OUTPUT_DB_PATH=~/ultratree-results/inferences.sqlite
+#export ULTRATREE_EVAL_OUTPUT_DB_PATH=/tmp/inferences.sqlite
 
 # There is another environment variable I could use:
 #  export ULTRATREE_EVAL_MODEL_PATHS=...
@@ -38,11 +39,11 @@ done
 for i in 1 2 3 4 5
 do
     ./bin/contextreport -input /ultratree/language-model/sense-annotated${i}.sqlite \
-			-output ~/ultratree-results/inferences.sqlite
+			-output $ULTRATREE_EVAL_OUTPUT_DB_PATH
 done
 
 ./bin/contextreport -input /ultratree/language-model/unannotated-model1.sqlite \
-		    -output ~/ultratree-results/inferences.sqlite
+		    -output $ULTRATREE_EVAL_OUTPUT_DB_PATH
 
 
 
