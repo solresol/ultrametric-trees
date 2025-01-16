@@ -3,50 +3,48 @@
 ( cd ~/ultratree-results ; git pull -q )
 
 TZ=UTC
+
+export ULTRATREE_EVAL_RUN_DESCRIPTION="Default daily $(date +%Y-%m-%d)"
+export ULTRATREE_EVAL_TEST_DATA_DB_PATH="/ultratree/language-model/testdata.sqlite"
+export ULTRATREE_EVAL_MODE_CUTOFF_TIME="$(date +'%Y-%m-%d %H:%M:%S')"
+export ULTRATREE_EVAL_OUTPUT_DB_PATH=~/ultratree-results/inferences.sqlite
+
+# There is another environment variable I could use:
+#  export ULTRATREE_EVAL_MODEL_PATHS=...
+# But since that is different for each evaluation run here, I've chosen
+# not to set it.
+
 cd ~/ultrametric-trees
+
 
 ENSEMBLE_MODEL="@"
 for i in 1 2 3 4 5
 do
-    ./bin/evaluatemodel \
-	-model /ultratree/language-model/sense-annotated${i}.sqlite \
-	-model-cutoff-time "$(date +'%Y-%m-%d %H:%M:%S')" \
-	-test-data-database /ultratree/language-model/testdata.sqlite \
-	-run-description "Default daily $(date +%Y-%m-%d)" \
-	-output-database ~/ultratree-results/inferences.sqlite
+    ./bin/evaluatemodel -model /ultratree/language-model/sense-annotated${i}.sqlite
     ENSEMBLE_MODEL="$ENSEMBLE_MODEL,/ultratree/language-model/sense-annotated${i}.sqlite"
-    ./bin/contextreport -input /ultratree/language-model/sense-annotated${i}.sqlite \
-			-output ~/ultratree-results/inferences.sqlite
 done
 
 ENSEMBLE_MODEL=$(echo $ENSEMBLE_MODEL | sed 's/^@,//')
 
-./bin/evaluatemodel \
-    -model $ENSEMBLE_MODEL \
-    -model-cutoff-time "$(date +'%Y-%m-%d %H:%M:%S')" \
-    -test-data-database /ultratree/language-model/testdata.sqlite \
-    -run-description "Default daily for ensemble model $(date +%Y-%m-%d)" \
-    -output-database ~/ultratree-results/inferences.sqlite
+./bin/evaluatemodel -model $ENSEMBLE_MODEL
+./bin/evaluatemodel -model /ultratree/language-model/unannotated-model1.sqlite
 
-./bin/evaluatemodel \
-    -model /ultratree/language-model/unannotated-model1.sqlite \
-    -model-cutoff-time "$(date +'%Y-%m-%d %H:%M:%S')" \
-    -test-data-database /ultratree/language-model/testdata.sqlite \
-    -run-description "Default daily for unnotated data model #1 $(date +%Y-%m-%d)" \
-    -output-database ~/ultratree-results/inferences.sqlite
+for CARE in 10 100 10000
+do
+  ./bin/evaluatemodel -model /ultratree/language-model/careful${CARE}.sqlite
+done
+
+
+for i in 1 2 3 4 5
+do
+    ./bin/contextreport -input /ultratree/language-model/sense-annotated${i}.sqlite \
+			-output ~/ultratree-results/inferences.sqlite
+done
+
 ./bin/contextreport -input /ultratree/language-model/unannotated-model1.sqlite \
 		    -output ~/ultratree-results/inferences.sqlite
 
 
-for CARE in 10 100 10000
-do
-  ./bin/evaluatemodel \
-    -model /ultratree/language-model/careful${CARE}.sqlite \
-    -model-cutoff-time "$(date +'%Y-%m-%d %H:%M:%S')" \
-    -test-data-database /ultratree/language-model/testdata.sqlite \
-    -run-description "Default daily for care ${CARE} data model $(date +%Y-%m-%d)" \
-    -output-database ~/ultratree-results/inferences.sqlite
-done 
 
 sqlite3 ~/ultratree-results/inferences.sqlite ".dump evaluation_runs" > ~/ultratree-results/evaluation_runs.sql
 sqlite3 ~/ultratree-results/inferences.sqlite ".dump inferences" > ~/ultratree-results/inferences.sql
