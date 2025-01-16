@@ -6,7 +6,7 @@ TZ=UTC
 
 export ULTRATREE_EVAL_RUN_DESCRIPTION="Default daily $(date +%Y-%m-%d)"
 export ULTRATREE_EVAL_TEST_DATA_DB_PATH="/ultratree/language-model/testdata.sqlite"
-export ULTRATREE_EVAL_MODE_CUTOFF_TIME="$(date +'%Y-%m-%d %H:%M:%S')"
+export ULTRATREE_EVAL_MODEL_CUTOFF_TIME="$(date +'%Y-%m-%d %H:%M:%S')"
 export ULTRATREE_EVAL_OUTPUT_DB_PATH=~/ultratree-results/inferences.sqlite
 #export ULTRATREE_EVAL_OUTPUT_DB_PATH=/tmp/inferences.sqlite
 
