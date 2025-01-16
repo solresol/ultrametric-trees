@@ -99,12 +99,12 @@ func (m *ModelInference) traverseNode(current *node.Node, context []string, verb
 	}
 	// Check if the context matches the inner region
 	contextValue := context[contextIdx]
-	decodedValue, _ := decode.DecodePath(m.db, contextValue)
-	decodedRegion, _ := decode.DecodePath(m.db, current.InnerRegionPrefix.String)
-	decodedExemplar, _ := decode.DecodePath(m.db, current.ExemplarValue.String)
 
 	if strings.HasPrefix(current.InnerRegionPrefix.String, contextValue) {
 		if verbose {
+			decodedValue, _ := decode.DecodePath(m.db, contextValue)
+			decodedRegion, _ := decode.DecodePath(m.db, current.InnerRegionPrefix.String)
+			decodedExemplar, _ := decode.DecodePath(m.db, current.ExemplarValue.String)
 			log.Printf("Node %d matched. It wanted context%d which is `%s' (%s) to be in %s (%s), which suggests predicting %s (%s)", current.ID, current.ContextK.Int64, decodedValue, contextValue, current.InnerRegionPrefix.String, decodedRegion, current.ExemplarValue.String, decodedExemplar)
 			//log.Printf("It is inside that, so we will go to %d", current.InnerRegionNodeID.Int64)
 		}
