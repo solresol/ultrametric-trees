@@ -129,12 +129,13 @@ func main() {
 	}
 
 	// Process validation data with ensemble model
-	err = processValidationData(modelPathList[0], testdataDB, outputDB, ensemble,
+	totalLoss, err := processValidationData(modelPathList[0], testdataDB, outputDB, ensemble,
 		*testdataTable, *outputTable, int(*limit),
 		int(*contextLength), evaluation_run_id, *verbose)
 	if err != nil {
 		log.Fatalf("Error processing validation data: %v", err)
 	}
+	log.Printf("Total loss for %s: %f", *modelPaths, totalLoss)
 }
 
 func createOutputTable(db *sql.DB, tableName string) error {
@@ -180,12 +181,12 @@ func createOutputTable(db *sql.DB, tableName string) error {
 
 func processValidationData(trainingDBPath string, testdataDB, outputDB *sql.DB,
 	engine *inference.EnsemblingModel, testdataTable, outputTable string,
-	limit int, contextLength int, evaluation_run_id int64, verbose bool) error {
+	limit int, contextLength int, evaluation_run_id int64, verbose bool) (float64, error) {
 
 	// Open first model DB for word decoding
 	trainingDB, err := sql.Open("sqlite3", trainingDBPath)
 	if err != nil {
-		return fmt.Errorf("error opening training database for decoding: %v", err)
+		return 0.0, fmt.Errorf("error opening training database for decoding: %v", err)
 	}
 	defer trainingDB.Close()
 
@@ -204,7 +205,7 @@ func processValidationData(trainingDBPath string, testdataDB, outputDB *sql.DB,
 
 	rows, err := testdataDB.Query(query)
 	if err != nil {
-		return fmt.Errorf("error querying validation data: %v", err)
+		return 0.0, fmt.Errorf("error querying validation data: %v", err)
 	}
 	defer rows.Close()
 
@@ -225,7 +226,7 @@ func processValidationData(trainingDBPath string, testdataDB, outputDB *sql.DB,
 		}
 
 		if err := rows.Scan(scanArgs...); err != nil {
-			return fmt.Errorf("error scanning row: %v", err)
+			return 0.0, fmt.Errorf("error scanning row: %v", err)
 		}
 
 		contextStrings := make([]string, 0, contextLength)
@@ -237,7 +238,7 @@ func processValidationData(trainingDBPath string, testdataDB, outputDB *sql.DB,
 
 		contextString, err := decode.ShowContext(testdataDB, contextStrings)
 		if err != nil {
-			return err
+			return 0.0, err
 		}
 		if verbose {
 			log.Printf("INFERING %d: %s", id, contextString)
@@ -280,7 +281,7 @@ func processValidationData(trainingDBPath string, testdataDB, outputDB *sql.DB,
 			result.PredictedPath, correctAnswer, loss)
 
 		if err != nil {
-			return fmt.Errorf("error saving result for %d: %v", id, err)
+			return 0.0, fmt.Errorf("error saving result for %d: %v", id, err)
 		}
 
 		totalLoss += loss
@@ -288,8 +289,6 @@ func processValidationData(trainingDBPath string, testdataDB, outputDB *sql.DB,
 		totalInRegionHits += result.InRegion
 		totalDataPoints++
 	}
-
-	log.Printf("Total loss: %f", totalLoss)
 
 	_, err = outputDB.Exec(`
 		update evaluation_runs set
@@ -306,10 +305,10 @@ func processValidationData(trainingDBPath string, testdataDB, outputDB *sql.DB,
 		evaluation_run_id)
 
 	if err != nil {
-		return fmt.Errorf("error closing off validation run %d: %v", evaluation_run_id, err)
+		return 0.0, fmt.Errorf("error closing off validation run %d: %v", evaluation_run_id, err)
 	}
 
-	return nil
+	return totalLoss, nil
 }
 
 func getContextColumns(contextLength int) string {
