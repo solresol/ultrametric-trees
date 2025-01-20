@@ -57,14 +57,15 @@ sqlite3 ~/ultratree-results/inferences.sqlite ".dump evaluation_runs" > ~/ultrat
 sqlite3 ~/ultratree-results/inferences.sqlite ".dump inferences" > ~/ultratree-results/inferences.sql
 sqlite3 ~/ultratree-results/inferences.sqlite ".dump context_snapshots" > ~/ultratree-results/context_snapshots.sql
 sqlite3 ~/ultratree-results/inferences.sqlite ".dump context_usage" > ~/ultratree-results/context_usage.sql
-
+rm -f ~/ultratree-results/inferences.sql.gz
+gzip -9 ~/ultratree-results/inferences.sql
 
 ./bin/report -db /ultratree/language-model/sense-annotated${i}.sqlite > ~/ultratree-results/training-results.csv
 ./bin/report -db /ultratree/language-model/unannotated-model1.sqlite > ~/ultratree-results/unannotated-model1-training-results.csv
 
 cd ~/ultratree-results
 git add evaluation_runs.sql
-git add inferences.sql
+git add inferences.sql.gz
 git add context_snapshots.sql
 git add context_usage.sql
 git add training-results.csv
