@@ -46,6 +46,12 @@ done
 		    -output $ULTRATREE_EVAL_OUTPUT_DB_PATH
 
 
+for CARE in 10 100 10000
+do
+    ./bin/contextreport -input /ultratree/language-model/careful${CARE}.sqlite \
+			-output ~/ultratree-results/inferences.sqlite    
+done 
+
 
 sqlite3 ~/ultratree-results/inferences.sqlite ".dump evaluation_runs" > ~/ultratree-results/evaluation_runs.sql
 sqlite3 ~/ultratree-results/inferences.sqlite ".dump inferences" > ~/ultratree-results/inferences.sql
